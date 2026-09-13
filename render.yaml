@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: pi1-grupo2-api
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    healthCheckPath: /api/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # Render genera una clave aleatoria. No queda escrita en el repositorio.
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      # sync: false significa que el valor se carga a mano en el panel de Render.
+      # Son las dos que llevan datos sensibles o que cambian por entorno.
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
