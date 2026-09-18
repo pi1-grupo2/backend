@@ -60,7 +60,7 @@ credenciales, pero no es el entorno del equipo.
 ## Variables de entorno
 
 | Variable | Para qué sirve |
-|---|---|
+| --- | --- |
 | `DJANGO_SECRET_KEY` | Clave de firma de Django. En Render se genera sola |
 | `DJANGO_DEBUG` | `true` en local, `false` en producción |
 | `DJANGO_ALLOWED_HOSTS` | Dominios que puede servir la API. En Render se agrega solo |
@@ -71,6 +71,7 @@ El archivo `.env` está en `.gitignore` y no se sube nunca. Una credencial que e
 Git queda visible aunque después se borre del archivo.
 
 ## Estructura
+
 backend/
 ├── config/ configuración del proyecto (settings, urls, wsgi)
 ├── api/ aplicación de la API
@@ -79,7 +80,6 @@ backend/
 ├── build.sh lo ejecuta Render en cada despliegue
 ├── render.yaml definición del servicio en Render
 └── .env.example plantilla de variables, sin valores
-
 
 ## Convenciones de trabajo
 
@@ -91,7 +91,7 @@ backend/
 ## Despliegue
 
 | Entorno | URL |
-|---|---|
+| --- | --- |
 | API en producción | pendiente |
 | Frontend | pendiente |
 
