@@ -124,12 +124,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CORS. Solo los origenes declarados pueden llamar a la API.
 # Nunca poner CORS_ALLOW_ALL_ORIGINS = True: es la forma rapida de que funcione
 # y tambien la forma de abrir la API a cualquiera.
-CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+)
 
 # Necesario para que Django confie en el dominio de Render al validar CSRF.
 CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"] if RENDER_EXTERNAL_HOSTNAME else []
 
 REST_FRAMEWORK = {
+    # Sprint 1 trabaja con usuario demo, sin sesión. Sin esto, DRF exige CSRF
+    # y el navegador del frontend no puede crear ni borrar.
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
