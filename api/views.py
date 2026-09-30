@@ -1,9 +1,14 @@
 from django.db import connection
+from django.contrib.auth.hashers import check_password
+import secrets
+
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Evento, Organizador, SubtareaLogistica
+from .autenticacion import MENSAJE_CREDENCIALES
+from .models import Evento, Organizador, Sesion, SubtareaLogistica
 from .serializers import (
     EventoSerializer,
     OrganizadorSerializer,
@@ -11,19 +16,8 @@ from .serializers import (
 )
 
 
-def organizador_demo():
-    """Usuario demo del Sprint 1. La autenticación llega en el Sprint 2."""
-    organizador = Organizador.objects.filter(identidad_externa="demo").first()
-    if organizador:
-        return organizador
-    return Organizador.objects.create(
-        nombre="Natalia",
-        identidad_externa="demo",
-        limite_diario_horas=6,
-    )
-
-
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def health(request):
     """Comprueba que la API y la base de datos respondan."""
     try:
@@ -45,7 +39,7 @@ def health(request):
 
 @api_view(["GET", "PATCH"])
 def organizador_actual(request):
-    organizador = organizador_demo()
+    organizador = request.user
 
     if request.method == "GET":
         return Response(OrganizadorSerializer(organizador).data)
@@ -60,12 +54,11 @@ def organizador_actual(request):
 @api_view(["GET", "POST"])
 def eventos(request):
     if request.method == "GET":
-        queryset = Evento.objects.all().order_by("fecha_hora_evento")
+        queryset = Evento.objects.filter(organizador=request.user).order_by("fecha_hora_evento")
         return Response(EventoSerializer(queryset, many=True).data)
 
     datos = request.data.copy()
-    if not datos.get("organizador"):
-        datos["organizador"] = organizador_demo().id
+    datos["organizador"] = request.user.id
 
     serializer = EventoSerializer(data=datos)
     if serializer.is_valid():
@@ -74,9 +67,9 @@ def eventos(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _obtener_evento(evento_id):
+def _obtener_evento(evento_id, organizador):
     try:
-        return Evento.objects.get(id=evento_id), None
+        return Evento.objects.get(id=evento_id, organizador=organizador), None
     except Evento.DoesNotExist:
         return None, Response(
             {"detail": "Evento no encontrado."},
@@ -86,7 +79,7 @@ def _obtener_evento(evento_id):
 
 @api_view(["GET", "PATCH", "DELETE"])
 def evento_detalle(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
@@ -106,7 +99,7 @@ def evento_detalle(request, evento_id):
 
 @api_view(["GET", "POST"])
 def subtareas_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
@@ -125,7 +118,7 @@ def subtareas_evento(request, evento_id):
 
 @api_view(["PATCH", "DELETE"])
 def actualizar_subtarea(request, evento_id, subtarea_id):
-    evento, error = _obtener_evento(evento_id)
+    evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
@@ -150,7 +143,7 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
 
 @api_view(["GET"])
 def progreso_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
@@ -171,7 +164,7 @@ def progreso_evento(request, evento_id):
 
 @api_view(["GET"])
 def conflictos_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
@@ -209,3 +202,37 @@ def conflictos_evento(request, evento_id):
             "conflictos": conflictos,
         }
     )
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def login(request):
+    correo = str(request.data.get("correo") or "").strip().lower()
+    password = request.data.get("password") or ""
+    organizador = Organizador.objects.filter(correo=correo).first() if correo else None
+    clave_valida = (
+        organizador is not None
+        and organizador.password
+        and check_password(password, organizador.password)
+    )
+    if not clave_valida:
+        return Response({"detail": MENSAJE_CREDENCIALES}, status=status.HTTP_401_UNAUTHORIZED)
+
+    sesion = Sesion.objects.create(organizador=organizador, token=secrets.token_urlsafe(32))
+    return Response(
+        {
+            "token": sesion.token,
+            "organizador": OrganizadorSerializer(organizador).data,
+        }
+    )
+
+
+@api_view(["GET", "DELETE"])
+@permission_classes([IsAuthenticated])
+def sesion_actual(request):
+    if request.method == "DELETE":
+        if request.auth is not None:
+            request.auth.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    return Response(OrganizadorSerializer(request.user).data)

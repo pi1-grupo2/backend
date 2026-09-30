@@ -221,6 +221,30 @@ PARA_HOY
 PROXIMA
 EJECUTADA
 Endpoints
+
+Salvo health y login, todas las rutas exigen el encabezado `Authorization: Bearer <token>`.
+Cada organizador solo ve y modifica sus propios eventos.
+
+Login
+
+POST /api/auth/login/
+
+{
+  "correo": "natalia@demo.com",
+  "password": "EventFlow2026"
+}
+
+La respuesta incluye `token` y los datos del organizador, sin la contraseña.
+La cuenta de demostración es Natalia, correo `natalia@demo.com`, contraseña `EventFlow2026`.
+
+Consultar la sesión actual:
+
+GET /api/auth/sesion/
+
+Cerrar la sesión:
+
+DELETE /api/auth/sesion/
+
 Health
 
 Comprueba que la API y la conexión con la base de datos estén disponibles.
@@ -228,7 +252,7 @@ Comprueba que la API y la conexión con la base de datos estén disponibles.
 GET /api/health/
 Eventos
 
-Obtener todos los eventos:
+Obtener los eventos del organizador autenticado:
 
 GET /api/events/
 

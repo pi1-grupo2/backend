@@ -133,11 +133,11 @@ CORS_ALLOWED_ORIGINS = env_list(
 CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"] if RENDER_EXTERNAL_HOSTNAME else []
 
 REST_FRAMEWORK = {
-    # Sprint 1 trabaja con usuario demo, sin sesión. Sin esto, DRF exige CSRF
-    # y el navegador del frontend no puede crear ni borrar.
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "api.autenticacion.TokenOrganizadorAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",

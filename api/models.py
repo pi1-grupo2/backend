@@ -9,6 +9,8 @@ class Organizador(models.Model):
         null=True,
         blank=True,
     )
+    correo = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)
     limite_diario_horas = models.DecimalField(
         max_digits=4,
         decimal_places=1,
@@ -16,11 +18,35 @@ class Organizador(models.Model):
     )
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
     class Meta:
         db_table = "organizador"
 
     def __str__(self):
         return self.nombre
+
+
+class Sesion(models.Model):
+    organizador = models.ForeignKey(
+        Organizador,
+        on_delete=models.CASCADE,
+        related_name="sesiones",
+    )
+    token = models.CharField(max_length=64, unique=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "sesion"
+
+    def __str__(self):
+        return f"Sesión de {self.organizador}"
 
 
 class Evento(models.Model):
