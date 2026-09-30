@@ -41,6 +41,7 @@ class Sesion(models.Model):
     )
     token = models.CharField(max_length=64, unique=True)
     creado_en = models.DateTimeField(auto_now_add=True)
+    expira_en = models.DateTimeField()
 
     class Meta:
         db_table = "sesion"

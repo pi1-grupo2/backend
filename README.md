@@ -234,7 +234,8 @@ POST /api/auth/login/
   "password": "EventFlow2026"
 }
 
-La respuesta incluye `token` y los datos del organizador, sin la contraseña.
+La respuesta incluye `token`, `expira_en` y los datos del organizador, sin la contraseña.
+La sesión dura 8 horas. Si el token vence o no es válido, la API responde 401 y no entrega eventos.
 La cuenta de demostración es Natalia, correo `natalia@demo.com`, contraseña `EventFlow2026`.
 
 Consultar la sesión actual:

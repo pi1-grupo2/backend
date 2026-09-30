@@ -1,14 +1,13 @@
 from django.db import connection
 from django.contrib.auth.hashers import check_password
-import secrets
 
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .autenticacion import MENSAJE_CREDENCIALES
-from .models import Evento, Organizador, Sesion, SubtareaLogistica
+from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
+from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
     EventoSerializer,
     OrganizadorSerializer,
@@ -219,17 +218,17 @@ def login(request):
     if not clave_valida:
         return Response({"detail": MENSAJE_CREDENCIALES}, status=status.HTTP_401_UNAUTHORIZED)
 
-    sesion = Sesion.objects.create(organizador=organizador, token=secrets.token_urlsafe(32))
+    sesion = crear_sesion(organizador)
     return Response(
         {
             "token": sesion.token,
+            "expira_en": sesion.expira_en,
             "organizador": OrganizadorSerializer(organizador).data,
         }
     )
 
 
 @api_view(["GET", "DELETE"])
-@permission_classes([IsAuthenticated])
 def sesion_actual(request):
     if request.method == "DELETE":
         if request.auth is not None:

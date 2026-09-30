@@ -137,7 +137,7 @@ REST_FRAMEWORK = {
         "api.autenticacion.TokenOrganizadorAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "api.autenticacion.SesionRequerida",
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
