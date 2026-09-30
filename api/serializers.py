@@ -17,10 +17,11 @@ class OrganizadorSerializer(serializers.ModelSerializer):
             "id",
             "nombre",
             "identidad_externa",
+            "correo",
             "limite_diario_horas",
             "creado_en",
         ]
-        read_only_fields = ["id", "identidad_externa", "creado_en"]
+        read_only_fields = ["id", "identidad_externa", "correo", "creado_en"]
 
     def validate_limite_diario_horas(self, value):
         if value < 1 or value > 16:
