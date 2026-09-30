@@ -1,8 +1,17 @@
+from django.contrib.auth.models import User
 from django.db import models
 
 
 class Organizador(models.Model):
     nombre = models.CharField(max_length=150)
+    
+    usuario = models.OneToOneField(
+    User,
+    on_delete=models.CASCADE,
+    related_name="organizador",
+    null=True,
+    blank=True,
+)
     identidad_externa = models.CharField(
         max_length=255,
         unique=True,

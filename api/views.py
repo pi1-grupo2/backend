@@ -1,6 +1,10 @@
+from django.contrib.auth import authenticate
 from django.db import connection
+
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.authtoken.models import Token
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import Evento, Organizador, SubtareaLogistica
@@ -14,8 +18,10 @@ from .serializers import (
 def organizador_demo():
     """Usuario demo del Sprint 1. La autenticación llega en el Sprint 2."""
     organizador = Organizador.objects.filter(identidad_externa="demo").first()
+
     if organizador:
         return organizador
+
     return Organizador.objects.create(
         nombre="Natalia",
         identidad_externa="demo",
@@ -23,8 +29,17 @@ def organizador_demo():
     )
 
 
+def organizador_autenticado(request):
+    try:
+        return request.user.organizador
+    except Organizador.DoesNotExist:
+        return None
+
+
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def health(request):
+    
     """Comprueba que la API y la base de datos respondan."""
     try:
         with connection.cursor() as cursor:
@@ -41,42 +56,113 @@ def health(request):
             "base_de_datos": base_de_datos,
         }
     )
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def login(request):
+    username = request.data.get("username")
+    password = request.data.get("password")
 
+    if not username or not password:
+        return Response(
+            {"detail": "Credenciales inválidas"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    usuario = authenticate(
+        username=username,
+        password=password,
+    )
+
+    if usuario is None:
+        return Response(
+            {"detail": "Credenciales inválidas"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    token, _ = Token.objects.get_or_create(user=usuario)
+
+    return Response(
+        {
+            "token": token.key,
+            "usuario": usuario.username,
+        }
+    )
 
 @api_view(["GET", "PATCH"])
 def organizador_actual(request):
-    organizador = organizador_demo()
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     if request.method == "GET":
         return Response(OrganizadorSerializer(organizador).data)
 
-    serializer = OrganizadorSerializer(organizador, data=request.data, partial=True)
+    serializer = OrganizadorSerializer(
+        organizador,
+        data=request.data,
+        partial=True,
+    )
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 @api_view(["GET", "POST"])
 def eventos(request):
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     if request.method == "GET":
-        queryset = Evento.objects.all().order_by("fecha_hora_evento")
-        return Response(EventoSerializer(queryset, many=True).data)
+        queryset = (
+            Evento.objects
+            .filter(organizador=organizador)
+            .order_by("fecha_hora_evento")
+        )
+
+        return Response(
+            EventoSerializer(queryset, many=True).data
+        )
 
     datos = request.data.copy()
-    if not datos.get("organizador"):
-        datos["organizador"] = organizador_demo().id
+    datos["organizador"] = organizador.id
 
     serializer = EventoSerializer(data=datos)
+
     if serializer.is_valid():
         evento = serializer.save()
-        return Response(EventoSerializer(evento).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            EventoSerializer(evento).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    return Response(
+        serializer.errors,
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
-def _obtener_evento(evento_id):
+def _obtener_evento(evento_id, organizador):
     try:
-        return Evento.objects.get(id=evento_id), None
+        evento = Evento.objects.get(
+            id=evento_id,
+            organizador=organizador,
+        )
+        return evento, None
+
     except Evento.DoesNotExist:
         return None, Response(
             {"detail": "Evento no encontrado."},
@@ -86,7 +172,16 @@ def _obtener_evento(evento_id):
 
 @api_view(["GET", "PATCH", "DELETE"])
 def evento_detalle(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    evento, error = _obtener_evento(evento_id, organizador)
+
     if error:
         return error
 
@@ -106,7 +201,16 @@ def evento_detalle(request, evento_id):
 
 @api_view(["GET", "POST"])
 def subtareas_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    evento, error = _obtener_evento(evento_id, organizador)
+
     if error:
         return error
 
@@ -125,7 +229,16 @@ def subtareas_evento(request, evento_id):
 
 @api_view(["PATCH", "DELETE"])
 def actualizar_subtarea(request, evento_id, subtarea_id):
-    evento, error = _obtener_evento(evento_id)
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    evento, error = _obtener_evento(evento_id, organizador)
+
     if error:
         return error
 
@@ -150,13 +263,33 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
 
 @api_view(["GET"])
 def progreso_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    evento, error = _obtener_evento(evento_id, organizador)
+
     if error:
         return error
 
-    total_subtareas = SubtareaLogistica.objects.filter(evento=evento).count()
-    subtareas_ejecutadas = SubtareaLogistica.objects.filter(evento=evento, estado="EJECUTADA").count()
-    progreso = 0 if total_subtareas == 0 else round((subtareas_ejecutadas / total_subtareas) * 100, 1)
+    total_subtareas = SubtareaLogistica.objects.filter(
+        evento=evento
+    ).count()
+
+    subtareas_ejecutadas = SubtareaLogistica.objects.filter(
+        evento=evento,
+        estado="EJECUTADA",
+    ).count()
+
+    progreso = (
+        0
+        if total_subtareas == 0
+        else round((subtareas_ejecutadas / total_subtareas) * 100, 1)
+    )
 
     return Response(
         {
@@ -171,18 +304,45 @@ def progreso_evento(request, evento_id):
 
 @api_view(["GET"])
 def conflictos_evento(request, evento_id):
-    evento, error = _obtener_evento(evento_id)
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    evento, error = _obtener_evento(evento_id, organizador)
+
     if error:
         return error
 
-    subtareas = SubtareaLogistica.objects.filter(evento=evento).exclude(estado="EJECUTADA")
-    fechas = subtareas.values_list("fecha_objetivo", flat=True).distinct().order_by("fecha_objetivo")
+    subtareas = (
+        SubtareaLogistica.objects
+        .filter(evento=evento)
+        .exclude(estado="EJECUTADA")
+    )
+
+    fechas = (
+        subtareas
+        .values_list("fecha_objetivo", flat=True)
+        .distinct()
+        .order_by("fecha_objetivo")
+    )
+
     limite = evento.organizador.limite_diario_horas
     conflictos = []
 
     for fecha in fechas:
-        subtareas_fecha = list(subtareas.filter(fecha_objetivo=fecha))
-        horas_planificadas = sum(subtarea.horas_estimadas for subtarea in subtareas_fecha)
+        subtareas_fecha = list(
+            subtareas.filter(fecha_objetivo=fecha)
+        )
+
+        horas_planificadas = sum(
+            subtarea.horas_estimadas
+            for subtarea in subtareas_fecha
+        )
+
         if horas_planificadas > limite:
             conflictos.append(
                 {
