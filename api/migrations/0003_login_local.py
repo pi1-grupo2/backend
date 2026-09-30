@@ -11,16 +11,26 @@ def asignar_acceso_demo(apps, schema_editor):
         "password": make_password("EventFlow2026"),
     }
     if demo is None:
-        Organizador.objects.create(
+        demo = Organizador.objects.create(
             nombre="Natalia",
             identidad_externa="demo",
             limite_diario_horas=6,
             **acceso,
         )
-        return
-    demo.correo = acceso["correo"]
-    demo.password = acceso["password"]
-    demo.save(update_fields=["correo", "password"])
+    else:
+        demo.correo = acceso["correo"]
+        demo.password = acceso["password"]
+        demo.save(update_fields=["correo", "password"])
+
+    # En produccion ya existen organizadores creados antes del login.
+    # correo pasa a ser obligatorio: cada uno necesita un valor unico
+    # antes de quitar el null, o la migracion se cae en Postgres.
+    sin_correo = Organizador.objects.filter(correo__isnull=True)
+    for organizador in sin_correo:
+        organizador.correo = f"organizador-{organizador.pk}@eventflow.local"
+        if not organizador.password:
+            organizador.password = make_password(None)
+        organizador.save(update_fields=["correo", "password"])
 
 
 class Migration(migrations.Migration):
