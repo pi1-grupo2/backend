@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.db import connection
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -367,5 +368,80 @@ def conflictos_evento(request, evento_id):
             "evento": evento.id,
             "tiene_conflictos": len(conflictos) > 0,
             "conflictos": conflictos,
+        }
+    )
+@api_view(["GET"])
+def hoy(request):
+    organizador = organizador_autenticado(request)
+
+    if organizador is None:
+        return Response(
+            {"detail": "Usuario sin organizador asociado."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    subtareas = (
+        SubtareaLogistica.objects
+        .filter(evento__organizador=organizador)
+        .select_related("evento")
+    )
+
+    # Filtros opcionales
+    evento_id = request.query_params.get("evento")
+    estado = request.query_params.get("estado")
+
+    if evento_id:
+        subtareas = subtareas.filter(evento_id=evento_id)
+
+    if estado:
+        subtareas = subtareas.filter(estado=estado)
+
+    fecha_hoy = timezone.localdate()
+
+    vencidas = []
+    para_hoy = []
+    proximas = []
+
+    for subtarea in subtareas:
+        datos = SubtareaLogisticaSerializer(subtarea).data
+
+        if subtarea.fecha_objetivo < fecha_hoy:
+            vencidas.append(datos)
+
+        elif subtarea.fecha_objetivo == fecha_hoy:
+            para_hoy.append(datos)
+
+        else:
+            proximas.append(datos)
+
+    # Prioridad: fecha y, en empate, menor esfuerzo
+    vencidas.sort(
+        key=lambda subtarea: (
+            subtarea["fecha_objetivo"],
+            subtarea["horas_estimadas"],
+            subtarea["id"],
+        )
+    )
+
+    para_hoy.sort(
+        key=lambda subtarea: (
+            subtarea["horas_estimadas"],
+            subtarea["id"],
+        )
+    )
+
+    proximas.sort(
+        key=lambda subtarea: (
+            subtarea["fecha_objetivo"],
+            subtarea["horas_estimadas"],
+            subtarea["id"],
+        )
+    )
+
+    return Response(
+        {
+            "vencidas": vencidas,
+            "para_hoy": para_hoy,
+            "proximas": proximas,
         }
     )
