@@ -1,5 +1,5 @@
-from django.db import connection
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
+from django.db import IntegrityError, connection, transaction
 
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -11,8 +11,25 @@ from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
     EventoSerializer,
     OrganizadorSerializer,
+    RegistroSerializer,
     SubtareaLogisticaSerializer,
 )
+
+# Mismo texto que muestra Registro.jsx cuando el correo ya tiene cuenta.
+MENSAJE_CORREO_NO_DISPONIBLE = "No fue posible crear la cuenta con este correo."
+
+
+def _respuesta_sesion(organizador, codigo=status.HTTP_200_OK):
+    """Abre una sesión y arma la respuesta que el frontend guarda tal cual."""
+    sesion = crear_sesion(organizador)
+    return Response(
+        {
+            "token": sesion.token,
+            "expira_en": sesion.expira_en,
+            "organizador": OrganizadorSerializer(organizador).data,
+        },
+        status=codigo,
+    )
 
 
 @api_view(["GET"])
@@ -218,14 +235,39 @@ def login(request):
     if not clave_valida:
         return Response({"detail": MENSAJE_CREDENCIALES}, status=status.HTTP_401_UNAUTHORIZED)
 
-    sesion = crear_sesion(organizador)
-    return Response(
-        {
-            "token": sesion.token,
-            "expira_en": sesion.expira_en,
-            "organizador": OrganizadorSerializer(organizador).data,
-        }
+    return _respuesta_sesion(organizador)
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def registro(request):
+    """Crea una cuenta de organizador y la deja con la sesión iniciada."""
+    serializer = RegistroSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    datos = serializer.validated_data
+    correo_en_uso = Response(
+        {"detail": MENSAJE_CORREO_NO_DISPONIBLE},
+        status=status.HTTP_409_CONFLICT,
     )
+    if Organizador.objects.filter(correo=datos["correo"]).exists():
+        return correo_en_uso
+
+    try:
+        # atomic: si la base rechaza el correo por duplicado, no queda nada a medias.
+        with transaction.atomic():
+            organizador = Organizador.objects.create(
+                nombre=datos["nombre"],
+                correo=datos["correo"],
+                password=make_password(datos["password"]),
+            )
+    except IntegrityError:
+        # Dos registros con el mismo correo al mismo tiempo: gana el primero.
+        return correo_en_uso
+
+    return _respuesta_sesion(organizador, status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "DELETE"])

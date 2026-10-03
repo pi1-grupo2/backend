@@ -9,6 +9,16 @@ FECHA_EVENTO = "La fecha del evento debe ser posterior al día de hoy."
 FECHA_GESTION = "El plazo de la gestión logística no puede ser posterior a la fecha del evento."
 LIMITE_HORAS = "Las horas de gestión deben ser un valor entre 1 y 16."
 
+# Los textos de registro repiten los que ya muestra Registro.jsx,
+# para que el mismo error se lea igual venga del formulario o de la API.
+FALTA_NOMBRE = "Falta el nombre."
+FALTA_CORREO = "Falta el correo electrónico."
+FORMATO_CORREO = "El correo debe tener el formato nombre@correo.com."
+FALTA_PASSWORD = "Falta la contraseña."
+PASSWORD_CORTA = "La contraseña debe tener al menos 8 caracteres."
+PASSWORD_LARGA = "La contraseña no puede tener más de 128 caracteres."
+NOMBRE_LARGO = "El nombre no puede tener más de 150 caracteres."
+
 
 class OrganizadorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,6 +37,48 @@ class OrganizadorSerializer(serializers.ModelSerializer):
         if value < 1 or value > 16:
             raise serializers.ValidationError(LIMITE_HORAS)
         return value
+
+
+class RegistroSerializer(serializers.Serializer):
+    """Valida los datos para crear una cuenta. No guarda nada: eso lo hace la vista."""
+
+    nombre = serializers.CharField(
+        max_length=150,
+        error_messages={
+            "required": FALTA_NOMBRE,
+            "blank": FALTA_NOMBRE,
+            "null": FALTA_NOMBRE,
+            "max_length": NOMBRE_LARGO,
+        },
+    )
+    correo = serializers.EmailField(
+        max_length=254,
+        error_messages={
+            "required": FALTA_CORREO,
+            "blank": FALTA_CORREO,
+            "null": FALTA_CORREO,
+            "invalid": FORMATO_CORREO,
+            "max_length": FORMATO_CORREO,
+        },
+    )
+    # trim_whitespace=False: un espacio al inicio o al final es parte de la contraseña.
+    password = serializers.CharField(
+        min_length=8,
+        max_length=128,
+        write_only=True,
+        trim_whitespace=False,
+        error_messages={
+            "required": FALTA_PASSWORD,
+            "blank": FALTA_PASSWORD,
+            "null": FALTA_PASSWORD,
+            "min_length": PASSWORD_CORTA,
+            "max_length": PASSWORD_LARGA,
+        },
+    )
+
+    def validate_correo(self, value):
+        # El login busca el correo en minúsculas. Se guarda igual para que coincidan.
+        return value.strip().lower()
 
 
 class EventoSerializer(serializers.ModelSerializer):
