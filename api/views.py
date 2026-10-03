@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
+from .carga import evaluar_carga, formatear_horas, horas_planificadas
 from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
     EventoSerializer,
@@ -17,6 +18,9 @@ from .serializers import (
 
 # Mismo texto que muestra Registro.jsx cuando el correo ya tiene cuenta.
 MENSAJE_CORREO_NO_DISPONIBLE = "No fue posible crear la cuenta con este correo."
+
+MENSAJE_DIA_EXCEDIDO = "Un día no puede tener más de 24 horas de gestión planificadas."
+VALORES_DE_CONFIRMACION = (True, "true", "True", "1", 1)
 
 
 def _respuesta_sesion(organizador, codigo=status.HTTP_200_OK):
@@ -151,10 +155,61 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     serializer = SubtareaLogisticaSerializer(subtarea, data=request.data, partial=True)
-    if serializer.is_valid():
-        subtarea = serializer.save()
-        return Response(SubtareaLogisticaSerializer(subtarea).data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    conflicto = _revisar_sobrecarga(request, subtarea, serializer.validated_data)
+    if conflicto is not None:
+        return conflicto
+
+    subtarea = serializer.save()
+    return Response(SubtareaLogisticaSerializer(subtarea).data)
+
+
+def _revisar_sobrecarga(request, subtarea, datos):
+    """Devuelve la respuesta de conflicto si el cambio sobrecarga el día. Si no, None.
+
+    Solo se revisa cuando cambia la fecha o las horas de una gestión que sigue pendiente.
+    Cambiar el nombre o marcarla como ejecutada no pasa por aquí.
+    """
+    fecha = datos.get("fecha_objetivo", subtarea.fecha_objetivo)
+    horas = datos.get("horas_estimadas", subtarea.horas_estimadas)
+    estado = datos.get("estado", subtarea.estado)
+
+    cambia_fecha = fecha != subtarea.fecha_objetivo
+    cambia_horas = horas != subtarea.horas_estimadas
+    if estado == "EJECUTADA" or not (cambia_fecha or cambia_horas):
+        return None
+
+    carga = evaluar_carga(request.user, fecha, horas, excluir_id=subtarea.id)
+    cifras = {
+        "fecha": carga["fecha"],
+        "horas_planificadas": carga["horas_planificadas"],
+        "limite_diario_horas": carga["limite_diario_horas"],
+        "exceso_horas": carga["exceso_horas"],
+    }
+
+    # Reducir horas sin mover la gestión siempre alivia el día. No se bloquea aunque
+    # el día siga por encima de 24 h: sería impedirle al usuario arreglar el problema.
+    solo_reduce = not cambia_fecha and horas < subtarea.horas_estimadas
+    if carga["supera_dia"] and not solo_reduce:
+        return Response(
+            {"codigo": "dia_excedido", "detail": MENSAJE_DIA_EXCEDIDO, **cifras},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    confirmado = request.data.get("confirmar_sobrecarga") in VALORES_DE_CONFIRMACION
+    if carga["supera_limite"] and not confirmado:
+        detalle = (
+            f"Quedarías con {formatear_horas(carga['horas_planificadas'])}h de gestión "
+            f"planificadas (límite {formatear_horas(carga['limite_diario_horas'])}h)"
+        )
+        return Response(
+            {"codigo": "sobrecarga_diaria", "detail": detalle, **cifras},
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    return None
 
 
 @api_view(["GET"])
@@ -191,14 +246,15 @@ def conflictos_evento(request, evento_id):
 
     for fecha in fechas:
         subtareas_fecha = list(subtareas.filter(fecha_objetivo=fecha))
-        horas_planificadas = sum(subtarea.horas_estimadas for subtarea in subtareas_fecha)
-        if horas_planificadas > limite:
+        # El límite es del organizador: el día se suma con las gestiones de todos sus eventos.
+        horas_del_dia = horas_planificadas(evento.organizador, fecha)
+        if horas_del_dia > limite:
             conflictos.append(
                 {
                     "fecha": fecha,
-                    "horas_planificadas": horas_planificadas,
+                    "horas_planificadas": horas_del_dia,
                     "limite_diario_horas": limite,
-                    "exceso_horas": horas_planificadas - limite,
+                    "exceso_horas": horas_del_dia - limite,
                     "subtareas": [
                         {
                             "id": subtarea.id,
