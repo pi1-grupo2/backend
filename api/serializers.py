@@ -8,6 +8,8 @@ HORAS_INVALIDAS = "Las horas estimadas deben ser un valor mayor a 0 (ej. 1.5, 3)
 FECHA_EVENTO = "La fecha del evento debe ser posterior al día de hoy."
 FECHA_GESTION = "El plazo de la gestión logística no puede ser posterior a la fecha del evento."
 LIMITE_HORAS = "Las horas de gestión deben ser un valor entre 1 y 16."
+LIMITE_MEDIAS_HORAS = "El límite se define en horas completas o medias (ej. 6 o 6.5)."
+FECHA_PASADA = "La nueva fecha no puede ser anterior al día de hoy."
 
 # Los textos de registro repiten los que ya muestra Registro.jsx,
 # para que el mismo error se lea igual venga del formulario o de la API.
@@ -36,6 +38,9 @@ class OrganizadorSerializer(serializers.ModelSerializer):
     def validate_limite_diario_horas(self, value):
         if value < 1 or value > 16:
             raise serializers.ValidationError(LIMITE_HORAS)
+        # Mismo paso de 0,5 que usan las horas de las gestiones en el formulario.
+        if (value * 2) % 1 != 0:
+            raise serializers.ValidationError(LIMITE_MEDIAS_HORAS)
         return value
 
 
@@ -170,5 +175,16 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
             limite = timezone.localtime(evento.fecha_hora_evento).date()
             if fecha > limite:
                 raise serializers.ValidationError({"fecha_objetivo": FECHA_GESTION})
+
+        # Reprogramar hacia el pasado no tiene sentido. Solo se revisa cuando la fecha
+        # cambia: una gestión vencida debe poder marcarse como ejecutada sin tocarla.
+        nueva_fecha = attrs.get("fecha_objetivo")
+        if (
+            self.instance is not None
+            and nueva_fecha is not None
+            and nueva_fecha != self.instance.fecha_objetivo
+            and nueva_fecha < timezone.localdate()
+        ):
+            raise serializers.ValidationError({"fecha_objetivo": FECHA_PASADA})
 
         return attrs
