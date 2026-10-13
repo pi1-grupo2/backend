@@ -4,9 +4,11 @@ Aquí vive la única regla de sobrecarga del proyecto, para que reprogramar,
 reducir horas y el listado de conflictos sumen siempre de la misma manera.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Sum
+from django.utils import timezone
 
 from .models import SubtareaLogistica
 
@@ -42,6 +44,47 @@ def evaluar_carga(organizador, fecha, horas, excluir_id=None):
         "exceso_horas": max(total - limite, Decimal("0")),
         "supera_limite": total > limite,
         "supera_dia": total > HORAS_DEL_DIA,
+    }
+
+
+def fecha_del_evento(evento):
+    """Día del evento en America/Bogota. Una gestión no puede quedar después."""
+    momento = evento.fecha_hora_evento
+    if timezone.is_aware(momento):
+        return timezone.localtime(momento).date()
+    return momento.date()
+
+
+def sugerir_fecha(organizador, evento, fecha_rechazada, horas, excluir_id=None):
+    """Primer día entre hoy y el evento, distinto al rechazado, donde estas horas caben.
+
+    Devuelve None si ningún día deja el plan dentro del límite y de las 24 h.
+    No inventa una fecha fuera de ese rango.
+    """
+    hoy = timezone.localdate()
+    ultimo = fecha_del_evento(evento)
+    if ultimo < hoy:
+        return None
+
+    dia = hoy
+    while dia <= ultimo:
+        if dia != fecha_rechazada:
+            carga = evaluar_carga(organizador, dia, horas, excluir_id=excluir_id)
+            if not carga["supera_limite"] and not carga["supera_dia"]:
+                return dia
+        dia += timedelta(days=1)
+    return None
+
+
+def carga_guardada(organizador, fecha):
+    """Horas que quedaron en el día después de guardar, ya con la gestión incluida."""
+    total = horas_planificadas(organizador, fecha)
+    limite = organizador.limite_diario_horas
+    return {
+        "fecha": fecha,
+        "horas_planificadas": total,
+        "limite_diario_horas": limite,
+        "dentro_del_limite": total <= limite,
     }
 
 
