@@ -7,7 +7,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
-from .carga import evaluar_carga, formatear_horas, horas_planificadas
+from .carga import (
+    carga_guardada,
+    evaluar_carga,
+    formatear_horas,
+    horas_planificadas,
+    sugerir_fecha,
+)
 from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
     EventoSerializer,
@@ -57,13 +63,15 @@ def health(request):
     )
 
 
-@api_view(["GET", "PATCH"])
+@api_view(["GET", "PATCH", "PUT"])
 def organizador_actual(request):
     organizador = request.user
 
     if request.method == "GET":
         return Response(OrganizadorSerializer(organizador).data)
 
+    # PUT y PATCH actualizan el límite. El resto de la cuenta es de solo lectura,
+    # así que no se exige reenviar nombre ni correo.
     serializer = OrganizadorSerializer(organizador, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
@@ -162,8 +170,16 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
     if conflicto is not None:
         return conflicto
 
+    fecha_anterior = subtarea.fecha_objetivo
+    horas_anteriores = subtarea.horas_estimadas
     subtarea = serializer.save()
-    return Response(SubtareaLogisticaSerializer(subtarea).data)
+    cuerpo = SubtareaLogisticaSerializer(subtarea).data
+    cambio_de_carga = subtarea.estado != "EJECUTADA" and (
+        subtarea.fecha_objetivo != fecha_anterior or subtarea.horas_estimadas != horas_anteriores
+    )
+    if cambio_de_carga:
+        cuerpo["carga_del_dia"] = carga_guardada(request.user, subtarea.fecha_objetivo)
+    return Response(cuerpo)
 
 
 def _revisar_sobrecarga(request, subtarea, datos):
@@ -205,7 +221,18 @@ def _revisar_sobrecarga(request, subtarea, datos):
             f"planificadas (límite {formatear_horas(carga['limite_diario_horas'])}h)"
         )
         return Response(
-            {"codigo": "sobrecarga_diaria", "detail": detalle, **cifras},
+            {
+                "codigo": "sobrecarga_diaria",
+                "detail": detalle,
+                "fecha_sugerida": sugerir_fecha(
+                    request.user,
+                    subtarea.evento,
+                    fecha,
+                    horas,
+                    excluir_id=subtarea.id,
+                ),
+                **cifras,
+            },
             status=status.HTTP_409_CONFLICT,
         )
 

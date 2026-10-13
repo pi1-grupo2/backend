@@ -82,6 +82,7 @@ class DetectarConflictoTests(BaseCarga):
             respuesta.data["detail"],
             "Quedarías con 7h de gestión planificadas (límite 6h)",
         )
+        self.assertEqual(respuesta.data["fecha_sugerida"], self.hoy)
 
     def test_el_conflicto_no_guarda_el_cambio(self):
         self.crear_gestion(5)
@@ -215,6 +216,8 @@ class ResolverConflictoTests(BaseCarga):
         self.assertEqual(respuesta.status_code, status.HTTP_200_OK)
         proveedores.refresh_from_db()
         self.assertEqual(proveedores.fecha_objetivo, self.dia_x)
+        self.assertFalse(respuesta.data["carga_del_dia"]["dentro_del_limite"])
+        self.assertEqual(respuesta.data["carga_del_dia"]["horas_planificadas"], Decimal("7.0"))
 
     def test_escenario_1_resolver_moviendo_a_un_dia_con_cupo(self):
         self.crear_gestion(5)
@@ -229,6 +232,8 @@ class ResolverConflictoTests(BaseCarga):
 
         self.assertEqual(respuesta.status_code, status.HTTP_200_OK)
         self.assertEqual(respuesta.data["fecha_objetivo"], dia_libre.isoformat())
+        self.assertTrue(respuesta.data["carga_del_dia"]["dentro_del_limite"])
+        self.assertEqual(respuesta.data["carga_del_dia"]["horas_planificadas"], Decimal("2.0"))
 
     def test_escenario_2_reducir_horas_resuelve_el_conflicto(self):
         self.crear_gestion(5)
@@ -240,6 +245,8 @@ class ResolverConflictoTests(BaseCarga):
         proveedores.refresh_from_db()
         self.assertEqual(proveedores.horas_estimadas, Decimal("1.0"))
         self.assertEqual(proveedores.fecha_objetivo, self.dia_x)
+        self.assertEqual(respuesta.data["carga_del_dia"]["horas_planificadas"], Decimal("6.0"))
+        self.assertTrue(respuesta.data["carga_del_dia"]["dentro_del_limite"])
 
     def test_escenario_2_el_conflicto_persiste_si_la_reduccion_no_alcanza(self):
         self.crear_gestion(5)
@@ -390,6 +397,46 @@ class LimiteDiarioTests(BaseCarga):
                 format="json",
             )
             self.assertEqual(respuesta.status_code, status.HTTP_400_BAD_REQUEST, valor)
+
+    def test_put_guarda_el_limite_y_no_borra_la_cuenta(self):
+        respuesta = self.client.put("/api/organizador/", {"limite_diario_horas": 4}, format="json")
+
+        self.assertEqual(respuesta.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(respuesta.data["limite_diario_horas"]), Decimal("4.0"))
+        self.assertEqual(respuesta.data["correo"], "laura@correo.com")
+        self.organizador.refresh_from_db()
+        self.assertEqual(self.organizador.limite_diario_horas, Decimal("4.0"))
+
+    def test_put_rechaza_un_limite_invalido_sin_guardar(self):
+        for valor in (17, 6.3, 0):
+            respuesta = self.client.put(
+                "/api/organizador/",
+                {"limite_diario_horas": valor},
+                format="json",
+            )
+            self.assertEqual(respuesta.status_code, status.HTTP_400_BAD_REQUEST, valor)
+
+        self.organizador.refresh_from_db()
+        self.assertEqual(self.organizador.limite_diario_horas, Decimal("6.0"))
+
+
+class FechaSugeridaTests(BaseCarga):
+    """C4: el 409 propone un día donde la gestión cabe, o ninguno si no existe."""
+
+    def test_no_sugiere_fecha_si_ningun_dia_tiene_cupo(self):
+        fecha_evento = timezone.now() + timedelta(days=1)
+        self.evento.fecha_hora_evento = fecha_evento
+        self.evento.plazo_limite = fecha_evento.date()
+        self.evento.save()
+        manana = self.hoy + timedelta(days=1)
+        self.crear_gestion(6, fecha=self.hoy, nombre="Día de hoy lleno")
+        proveedores = self.crear_gestion(2, fecha=self.hoy, nombre="Proveedores")
+        self.crear_gestion(5, fecha=manana, nombre="Mañana casi llena")
+
+        respuesta = self.reprogramar(proveedores, fecha_objetivo=manana)
+
+        self.assertEqual(respuesta.status_code, status.HTTP_409_CONFLICT)
+        self.assertIsNone(respuesta.data["fecha_sugerida"])
 
 
 class ListadoDeConflictosTests(BaseCarga):
