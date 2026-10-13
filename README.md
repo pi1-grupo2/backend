@@ -382,3 +382,54 @@ Migración inicial de la base de datos
 
 La autenticación llega en el Sprint 2: hasta entonces se trabaja con usuario demo,
 según lo permite el enunciado.
+
+## Sprint 4 — estado de la gestión y progreso
+
+Salvo health, login y registro, estas rutas piden `Authorization: Bearer <token>`.
+Un token ausente o vencido responde **401** `{ "detail": "Sesión inválida o expirada" }`.
+Un evento o una gestión de otra cuenta responde **404**.
+
+### Cambiar el estado — `PATCH /api/events/{evento_id}/subtasks/{subtarea_id}/`
+
+Registra el avance (US-09). No hace falta otro endpoint.
+
+Marcar ejecutada:
+
+```json
+{ "estado": "EJECUTADA" }
+```
+
+Posponer con nota opcional:
+
+```json
+{ "estado": "POSPUESTA", "nota_posposicion": "esperando confirmación de salón" }
+```
+
+| Caso | Código | Qué pasa |
+| --- | --- | --- |
+| Estado `EJECUTADA` o `POSPUESTA` | 200 | Devuelve la gestión guardada. La nota, si no se envía, no se borra. |
+| Estado distinto de `PENDIENTE`, `EJECUTADA` o `POSPUESTA` | 400 | No guarda. El error viene en `estado`. |
+| Sin sesión | 401 | `Sesión inválida o expirada` |
+| Evento o gestión de otra cuenta | 404 | No guarda |
+
+Una gestión ejecutada deja de sumar horas del día. Una pospuesta sigue sumando y sigue en su fecha.
+
+### Progreso — `GET /api/events/{evento_id}/progress/`
+
+Porcentaje de gestiones `EJECUTADA` sobre el total del evento (US-10). No se guarda: se calcula en cada consulta. Las pospuestas no cuentan como ejecutadas. Sin gestiones, `progreso` es 0.
+
+```json
+{
+  "evento": 1,
+  "nombre": "Boda de Ana",
+  "total_subtareas": 2,
+  "subtareas_ejecutadas": 1,
+  "progreso": 50.0
+}
+```
+
+| Caso | Código |
+| --- | --- |
+| El evento es del organizador | 200 |
+| Sin sesión | 401 |
+| Evento de otra cuenta o inexistente | 404 |
