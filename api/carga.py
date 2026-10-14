@@ -55,18 +55,20 @@ def fecha_del_evento(evento):
     return momento.date()
 
 
-def sugerir_fecha(organizador, evento, fecha_rechazada, horas, excluir_id=None):
-    """Primer día entre hoy y el evento, distinto al rechazado, donde estas horas caben.
+def sugerir_fecha(organizador, evento, fecha_rechazada, horas, excluir_id=None, desde=None):
+    """Primer día entre `desde` (hoy si no llega) y el evento, distinto al rechazado,
+    donde estas horas caben.
 
     Devuelve None si ningún día deja el plan dentro del límite y de las 24 h.
     No inventa una fecha fuera de ese rango.
     """
     hoy = timezone.localdate()
+    inicio = max(hoy, desde) if desde is not None else hoy
     ultimo = fecha_del_evento(evento)
-    if ultimo < hoy:
+    if ultimo < inicio:
         return None
 
-    dia = hoy
+    dia = inicio
     while dia <= ultimo:
         if dia != fecha_rechazada:
             carga = evaluar_carga(organizador, dia, horas, excluir_id=excluir_id)
@@ -74,6 +76,14 @@ def sugerir_fecha(organizador, evento, fecha_rechazada, horas, excluir_id=None):
                 return dia
         dia += timedelta(days=1)
     return None
+
+
+def primer_dia_para_posponer(subtarea):
+    """Posponer mueve hacia adelante: desde el día siguiente a la fecha actual.
+
+    Si la gestión ya está vencida, el día siguiente quedaría en el pasado y se busca desde hoy.
+    """
+    return max(timezone.localdate(), subtarea.fecha_objetivo + timedelta(days=1))
 
 
 def carga_guardada(organizador, fecha):

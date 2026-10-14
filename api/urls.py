@@ -16,6 +16,11 @@ urlpatterns = [
         views.actualizar_subtarea,
         name="actualizar-subtarea",
     ),
+    path(
+        "events/<int:evento_id>/subtasks/<int:subtarea_id>/sugerencia-posponer/",
+        views.sugerencia_posponer,
+        name="sugerencia-posponer",
+    ),
     path("events/<int:evento_id>/progress/", views.progreso_evento, name="progreso-evento"),
     path("events/<int:evento_id>/conflicts/", views.conflictos_evento, name="conflictos-evento"),
 ]

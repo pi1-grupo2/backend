@@ -11,12 +11,15 @@ from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
 from .carga import (
     carga_guardada,
     evaluar_carga,
+    fecha_del_evento,
     formatear_horas,
     horas_planificadas,
+    primer_dia_para_posponer,
     sugerir_fecha,
 )
 from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
+    POSPONER_EJECUTADA,
     EventoSerializer,
     OrganizadorSerializer,
     RegistroSerializer,
@@ -233,6 +236,8 @@ def _revisar_sobrecarga(request, subtarea, datos):
                     fecha,
                     horas,
                     excluir_id=subtarea.id,
+                    # Al posponer, sugerir un día anterior llevaría a otro error.
+                    desde=primer_dia_para_posponer(subtarea) if estado == "POSPUESTA" else None,
                 ),
                 **cifras,
             },
@@ -240,6 +245,57 @@ def _revisar_sobrecarga(request, subtarea, datos):
         )
 
     return None
+
+
+@api_view(["GET"])
+def sugerencia_posponer(request, evento_id, subtarea_id):
+    """Día más cercano, después de la fecha actual, donde la gestión cabe sin pasar el límite.
+
+    El diálogo de posponer la pide antes de guardar, para ofrecer esa fecha como opción
+    principal. No guarda nada. Busca hasta el día del evento.
+    """
+    evento, error = _obtener_evento(evento_id, request.user)
+    if error:
+        return error
+
+    try:
+        subtarea = SubtareaLogistica.objects.get(id=subtarea_id, evento=evento)
+    except SubtareaLogistica.DoesNotExist:
+        return Response(
+            {"detail": "Subtarea no encontrada para este evento."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if subtarea.estado == "EJECUTADA":
+        return Response(
+            {"codigo": "gestion_ejecutada", "detail": POSPONER_EJECUTADA},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    desde = primer_dia_para_posponer(subtarea)
+    fecha = sugerir_fecha(
+        request.user,
+        evento,
+        subtarea.fecha_objetivo,
+        subtarea.horas_estimadas,
+        excluir_id=subtarea.id,
+        desde=desde,
+    )
+    horas_del_dia = None
+    if fecha is not None:
+        horas_del_dia = evaluar_carga(
+            request.user, fecha, subtarea.horas_estimadas, excluir_id=subtarea.id
+        )["horas_planificadas"]
+
+    return Response(
+        {
+            "fecha_sugerida": fecha,
+            "horas_planificadas": horas_del_dia,
+            "limite_diario_horas": request.user.limite_diario_horas,
+            "busqueda_desde": desde,
+            "busqueda_hasta": fecha_del_evento(evento),
+        }
+    )
 
 
 @api_view(["GET"])
