@@ -185,7 +185,8 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
 def _revisar_sobrecarga(request, subtarea, datos):
     """Devuelve la respuesta de conflicto si el cambio sobrecarga el día. Si no, None.
 
-    Solo se revisa cuando cambia la fecha o las horas de una gestión que sigue pendiente.
+    Se revisa cuando una gestión que queda sin ejecutar cambia de fecha o de horas,
+    o cuando deja de estar ejecutada y vuelve a ocupar tiempo en su día.
     Cambiar el nombre o marcarla como ejecutada no pasa por aquí.
     """
     fecha = datos.get("fecha_objetivo", subtarea.fecha_objetivo)
@@ -194,7 +195,8 @@ def _revisar_sobrecarga(request, subtarea, datos):
 
     cambia_fecha = fecha != subtarea.fecha_objetivo
     cambia_horas = horas != subtarea.horas_estimadas
-    if estado == "EJECUTADA" or not (cambia_fecha or cambia_horas):
+    vuelve_a_contar = subtarea.estado == "EJECUTADA" and estado != "EJECUTADA"
+    if estado == "EJECUTADA" or not (cambia_fecha or cambia_horas or vuelve_a_contar):
         return None
 
     carga = evaluar_carga(request.user, fecha, horas, excluir_id=subtarea.id)
@@ -207,7 +209,7 @@ def _revisar_sobrecarga(request, subtarea, datos):
 
     # Reducir horas sin mover la gestión siempre alivia el día. No se bloquea aunque
     # el día siga por encima de 24 h: sería impedirle al usuario arreglar el problema.
-    solo_reduce = not cambia_fecha and horas < subtarea.horas_estimadas
+    solo_reduce = not cambia_fecha and not vuelve_a_contar and horas < subtarea.horas_estimadas
     if carga["supera_dia"] and not solo_reduce:
         return Response(
             {"codigo": "dia_excedido", "detail": MENSAJE_DIA_EXCEDIDO, **cifras},
