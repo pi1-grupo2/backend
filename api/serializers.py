@@ -10,6 +10,9 @@ FECHA_GESTION = "El plazo de la gestión logística no puede ser posterior a la 
 LIMITE_HORAS = "Las horas de gestión deben ser un valor entre 1 y 16."
 LIMITE_MEDIAS_HORAS = "El límite se define en horas completas o medias (ej. 6 o 6.5)."
 FECHA_PASADA = "La nueva fecha no puede ser anterior al día de hoy."
+ESTADO_INVALIDO = "El estado debe ser PENDIENTE, EJECUTADA o POSPUESTA."
+POSPONER_FECHA_ANTERIOR = "Para posponer, la nueva fecha debe ser posterior a la fecha actual de la gestión."
+POSPONER_EJECUTADA = "Una gestión ejecutada no se puede posponer."
 
 # Los textos de registro repiten los que ya muestra Registro.jsx,
 # para que el mismo error se lea igual venga del formulario o de la API.
@@ -146,6 +149,7 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
             "nombre": {"error_messages": {"blank": "El nombre de la gestión es obligatorio.", "required": "El nombre de la gestión es obligatorio."}},
             "fecha_objetivo": {"error_messages": {"required": "La fecha objetivo es obligatoria.", "invalid": FECHA_GESTION}},
             "horas_estimadas": {"error_messages": {"required": HORAS_INVALIDAS, "invalid": HORAS_INVALIDAS}},
+            "estado": {"error_messages": {"invalid_choice": ESTADO_INVALIDO}},
         }
 
     def get_situacion(self, obj):
@@ -161,6 +165,12 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
             return "PARA_HOY"
 
         return "PROXIMA"
+
+    def validate_nota_posposicion(self, value):
+        # Una nota hecha solo de espacios no dice nada: se guarda como vacía.
+        if value is None:
+            return None
+        return value.strip() or None
 
     def validate_horas_estimadas(self, value):
         if value is None or value <= 0:
@@ -187,4 +197,22 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
         ):
             raise serializers.ValidationError({"fecha_objetivo": FECHA_PASADA})
 
+        if self.instance is not None and attrs.get("estado") == "POSPUESTA":
+            self._validar_posposicion(attrs)
+
         return attrs
+
+    def _validar_posposicion(self, attrs):
+        """Posponer es cambiar el estado y, si se quiere, dejar una nota y mover la fecha.
+
+        La guía del curso (US-09) solo pide estado y nota, así que la fecha es opcional.
+        Si llega, tiene que ir hacia adelante: posponer a un día anterior sería adelantar.
+        Solo se revisa cuando la petición pide el estado POSPUESTA; reprogramar una
+        gestión que ya estaba pospuesta sigue las reglas normales.
+        """
+        if self.instance.estado == "EJECUTADA":
+            raise serializers.ValidationError({"estado": POSPONER_EJECUTADA})
+
+        nueva_fecha = attrs.get("fecha_objetivo")
+        if nueva_fecha is not None and nueva_fecha <= self.instance.fecha_objetivo:
+            raise serializers.ValidationError({"fecha_objetivo": POSPONER_FECHA_ANTERIOR})

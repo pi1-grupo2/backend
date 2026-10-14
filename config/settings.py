@@ -134,6 +134,8 @@ CORS_ALLOWED_ORIGINS = env_list(
 CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"] if RENDER_EXTERNAL_HOSTNAME else []
 
 REST_FRAMEWORK = {
+    # Errores inesperados también salen en JSON. Ver api/errores.py.
+    "EXCEPTION_HANDLER": "api.errores.manejar_excepcion",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "api.autenticacion.TokenOrganizadorAuthentication",
     ],

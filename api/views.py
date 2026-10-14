@@ -1,5 +1,6 @@
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import IntegrityError, connection, transaction
+from django.db.models import Count, Q
 
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -10,12 +11,15 @@ from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
 from .carga import (
     carga_guardada,
     evaluar_carga,
+    fecha_del_evento,
     formatear_horas,
     horas_planificadas,
+    primer_dia_para_posponer,
     sugerir_fecha,
 )
 from .models import Evento, Organizador, SubtareaLogistica
 from .serializers import (
+    POSPONER_EJECUTADA,
     EventoSerializer,
     OrganizadorSerializer,
     RegistroSerializer,
@@ -185,7 +189,8 @@ def actualizar_subtarea(request, evento_id, subtarea_id):
 def _revisar_sobrecarga(request, subtarea, datos):
     """Devuelve la respuesta de conflicto si el cambio sobrecarga el día. Si no, None.
 
-    Solo se revisa cuando cambia la fecha o las horas de una gestión que sigue pendiente.
+    Se revisa cuando una gestión que queda sin ejecutar cambia de fecha o de horas,
+    o cuando deja de estar ejecutada y vuelve a ocupar tiempo en su día.
     Cambiar el nombre o marcarla como ejecutada no pasa por aquí.
     """
     fecha = datos.get("fecha_objetivo", subtarea.fecha_objetivo)
@@ -194,7 +199,8 @@ def _revisar_sobrecarga(request, subtarea, datos):
 
     cambia_fecha = fecha != subtarea.fecha_objetivo
     cambia_horas = horas != subtarea.horas_estimadas
-    if estado == "EJECUTADA" or not (cambia_fecha or cambia_horas):
+    vuelve_a_contar = subtarea.estado == "EJECUTADA" and estado != "EJECUTADA"
+    if estado == "EJECUTADA" or not (cambia_fecha or cambia_horas or vuelve_a_contar):
         return None
 
     carga = evaluar_carga(request.user, fecha, horas, excluir_id=subtarea.id)
@@ -207,7 +213,7 @@ def _revisar_sobrecarga(request, subtarea, datos):
 
     # Reducir horas sin mover la gestión siempre alivia el día. No se bloquea aunque
     # el día siga por encima de 24 h: sería impedirle al usuario arreglar el problema.
-    solo_reduce = not cambia_fecha and horas < subtarea.horas_estimadas
+    solo_reduce = not cambia_fecha and not vuelve_a_contar and horas < subtarea.horas_estimadas
     if carga["supera_dia"] and not solo_reduce:
         return Response(
             {"codigo": "dia_excedido", "detail": MENSAJE_DIA_EXCEDIDO, **cifras},
@@ -230,6 +236,8 @@ def _revisar_sobrecarga(request, subtarea, datos):
                     fecha,
                     horas,
                     excluir_id=subtarea.id,
+                    # Al posponer, sugerir un día anterior llevaría a otro error.
+                    desde=primer_dia_para_posponer(subtarea) if estado == "POSPUESTA" else None,
                 ),
                 **cifras,
             },
@@ -240,21 +248,80 @@ def _revisar_sobrecarga(request, subtarea, datos):
 
 
 @api_view(["GET"])
+def sugerencia_posponer(request, evento_id, subtarea_id):
+    """Día más cercano, después de la fecha actual, donde la gestión cabe sin pasar el límite.
+
+    El diálogo de posponer la pide antes de guardar, para ofrecer esa fecha como opción
+    principal. No guarda nada. Busca hasta el día del evento.
+    """
+    evento, error = _obtener_evento(evento_id, request.user)
+    if error:
+        return error
+
+    try:
+        subtarea = SubtareaLogistica.objects.get(id=subtarea_id, evento=evento)
+    except SubtareaLogistica.DoesNotExist:
+        return Response(
+            {"detail": "Subtarea no encontrada para este evento."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if subtarea.estado == "EJECUTADA":
+        return Response(
+            {"codigo": "gestion_ejecutada", "detail": POSPONER_EJECUTADA},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    desde = primer_dia_para_posponer(subtarea)
+    fecha = sugerir_fecha(
+        request.user,
+        evento,
+        subtarea.fecha_objetivo,
+        subtarea.horas_estimadas,
+        excluir_id=subtarea.id,
+        desde=desde,
+    )
+    horas_del_dia = None
+    if fecha is not None:
+        horas_del_dia = evaluar_carga(
+            request.user, fecha, subtarea.horas_estimadas, excluir_id=subtarea.id
+        )["horas_planificadas"]
+
+    return Response(
+        {
+            "fecha_sugerida": fecha,
+            "horas_planificadas": horas_del_dia,
+            "limite_diario_horas": request.user.limite_diario_horas,
+            "busqueda_desde": desde,
+            "busqueda_hasta": fecha_del_evento(evento),
+        }
+    )
+
+
+@api_view(["GET"])
 def progreso_evento(request, evento_id):
     evento, error = _obtener_evento(evento_id, request.user)
     if error:
         return error
 
-    total_subtareas = SubtareaLogistica.objects.filter(evento=evento).count()
-    subtareas_ejecutadas = SubtareaLogistica.objects.filter(evento=evento, estado="EJECUTADA").count()
-    progreso = 0 if total_subtareas == 0 else round((subtareas_ejecutadas / total_subtareas) * 100, 1)
+    # Una sola consulta cuenta todo. Las pospuestas siguen en el total: falta hacerlas.
+    conteo = SubtareaLogistica.objects.filter(evento=evento).aggregate(
+        total=Count("id"),
+        ejecutadas=Count("id", filter=Q(estado="EJECUTADA")),
+        pospuestas=Count("id", filter=Q(estado="POSPUESTA")),
+    )
+    total = conteo["total"]
+    ejecutadas = conteo["ejecutadas"]
+    progreso = 0 if total == 0 else round((ejecutadas / total) * 100, 1)
 
     return Response(
         {
             "evento": evento.id,
             "nombre": evento.nombre,
-            "total_subtareas": total_subtareas,
-            "subtareas_ejecutadas": subtareas_ejecutadas,
+            "total_subtareas": total,
+            "subtareas_ejecutadas": ejecutadas,
+            "subtareas_pospuestas": conteo["pospuestas"],
+            "subtareas_pendientes": total - ejecutadas - conteo["pospuestas"],
             "progreso": progreso,
         }
     )
