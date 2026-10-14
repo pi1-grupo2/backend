@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from . import documentacion
 from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
 from .carga import (
     carga_guardada,
@@ -148,6 +149,8 @@ def subtareas_evento(request, evento_id):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@documentacion.ACTUALIZAR_SUBTAREA
+@documentacion.ELIMINAR_SUBTAREA
 @api_view(["PATCH", "DELETE"])
 def actualizar_subtarea(request, evento_id, subtarea_id):
     evento, error = _obtener_evento(evento_id, request.user)
@@ -247,6 +250,7 @@ def _revisar_sobrecarga(request, subtarea, datos):
     return None
 
 
+@documentacion.SUGERENCIA_POSPONER
 @api_view(["GET"])
 def sugerencia_posponer(request, evento_id, subtarea_id):
     """Día más cercano, después de la fecha actual, donde la gestión cabe sin pasar el límite.
@@ -298,6 +302,7 @@ def sugerencia_posponer(request, evento_id, subtarea_id):
     )
 
 
+@documentacion.PROGRESO
 @api_view(["GET"])
 def progreso_evento(request, evento_id):
     evento, error = _obtener_evento(evento_id, request.user)
