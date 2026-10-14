@@ -1,5 +1,6 @@
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import IntegrityError, connection, transaction
+from django.db.models import Count, Q
 
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -247,16 +248,24 @@ def progreso_evento(request, evento_id):
     if error:
         return error
 
-    total_subtareas = SubtareaLogistica.objects.filter(evento=evento).count()
-    subtareas_ejecutadas = SubtareaLogistica.objects.filter(evento=evento, estado="EJECUTADA").count()
-    progreso = 0 if total_subtareas == 0 else round((subtareas_ejecutadas / total_subtareas) * 100, 1)
+    # Una sola consulta cuenta todo. Las pospuestas siguen en el total: falta hacerlas.
+    conteo = SubtareaLogistica.objects.filter(evento=evento).aggregate(
+        total=Count("id"),
+        ejecutadas=Count("id", filter=Q(estado="EJECUTADA")),
+        pospuestas=Count("id", filter=Q(estado="POSPUESTA")),
+    )
+    total = conteo["total"]
+    ejecutadas = conteo["ejecutadas"]
+    progreso = 0 if total == 0 else round((ejecutadas / total) * 100, 1)
 
     return Response(
         {
             "evento": evento.id,
             "nombre": evento.nombre,
-            "total_subtareas": total_subtareas,
-            "subtareas_ejecutadas": subtareas_ejecutadas,
+            "total_subtareas": total,
+            "subtareas_ejecutadas": ejecutadas,
+            "subtareas_pospuestas": conteo["pospuestas"],
+            "subtareas_pendientes": total - ejecutadas - conteo["pospuestas"],
             "progreso": progreso,
         }
     )
