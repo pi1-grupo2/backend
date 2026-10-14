@@ -152,7 +152,7 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
             "estado": {"error_messages": {"invalid_choice": ESTADO_INVALIDO}},
         }
 
-    def get_situacion(self, obj):
+    def get_situacion(self, obj) -> str:
         if obj.estado == "EJECUTADA":
             return "EJECUTADA"
 
