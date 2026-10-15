@@ -8,6 +8,7 @@ urlpatterns = [
     path("auth/registro/", views.registro, name="registro"),
     path("auth/sesion/", views.sesion_actual, name="sesion-actual"),
     path("organizador/", views.organizador_actual, name="organizador-actual"),
+    path("organizador/sobrecarga/", views.sobrecarga_organizador, name="sobrecarga-organizador"),
     path("events/", views.eventos, name="eventos"),
     path("events/<int:evento_id>/", views.evento_detalle, name="evento-detalle"),
     path("events/<int:evento_id>/subtasks/", views.subtareas_evento, name="subtareas-evento"),

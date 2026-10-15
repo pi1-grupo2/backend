@@ -13,6 +13,8 @@ from django.utils import timezone
 from .models import SubtareaLogistica
 
 HORAS_DEL_DIA = Decimal("24")
+# Paso mínimo de horas que usa el formulario de gestiones.
+MINIMO_DE_HORAS = Decimal("0.5")
 
 # Una gestión ejecutada ya no ocupa tiempo del día. Las pospuestas sí: siguen pendientes.
 ESTADO_QUE_NO_CUENTA = "EJECUTADA"
@@ -95,6 +97,67 @@ def carga_guardada(organizador, fecha):
         "horas_planificadas": total,
         "limite_diario_horas": limite,
         "dentro_del_limite": total <= limite,
+    }
+
+
+def dias_sobrecargados(organizador):
+    """Días desde hoy en los que el organizador pasa su límite, con qué se puede hacer en cada uno.
+
+    Usa el límite que tenga el objeto en memoria. Así sirve para revisar un límite nuevo
+    antes de guardarlo. Los días pasados no se listan: ya no hay nada que decidir sobre ellos.
+    """
+    limite = organizador.limite_diario_horas
+    pendientes = SubtareaLogistica.objects.filter(
+        evento__organizador=organizador,
+        fecha_objetivo__gte=timezone.localdate(),
+    ).exclude(estado=ESTADO_QUE_NO_CUENTA)
+    totales = (
+        pendientes.values("fecha_objetivo")
+        .annotate(total=Sum("horas_estimadas"))
+        .filter(total__gt=limite)
+        .order_by("fecha_objetivo")
+    )
+
+    dias = []
+    for fila in totales:
+        fecha = fila["fecha_objetivo"]
+        exceso = fila["total"] - limite
+        gestiones = pendientes.filter(fecha_objetivo=fecha).select_related("evento").order_by("-horas_estimadas", "id")
+        dias.append(
+            {
+                "fecha": fecha,
+                "horas_planificadas": fila["total"],
+                "limite_diario_horas": limite,
+                "exceso_horas": exceso,
+                "gestiones": [_salidas_para_la_gestion(organizador, gestion, exceso) for gestion in gestiones],
+            }
+        )
+    return dias
+
+
+def _salidas_para_la_gestion(organizador, gestion, exceso):
+    """Las dos salidas de US-08 para una gestión de un día sobrecargado.
+
+    fecha_sugerida: primer día donde la gestión cabe entera si se mueve.
+    horas_sugeridas: horas con las que cabe sin moverla. None si ni dejándola en media hora
+    alcanza, porque entonces reducir esa gestión sola no resuelve el día.
+    """
+    horas_para_caber = gestion.horas_estimadas - exceso
+    return {
+        "id": gestion.id,
+        "evento": gestion.evento_id,
+        "evento_nombre": gestion.evento.nombre,
+        "nombre": gestion.nombre,
+        "horas_estimadas": gestion.horas_estimadas,
+        "estado": gestion.estado,
+        "fecha_sugerida": sugerir_fecha(
+            organizador,
+            gestion.evento,
+            gestion.fecha_objetivo,
+            gestion.horas_estimadas,
+            excluir_id=gestion.id,
+        ),
+        "horas_sugeridas": horas_para_caber if horas_para_caber >= MINIMO_DE_HORAS else None,
     }
 
 
