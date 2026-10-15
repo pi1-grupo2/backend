@@ -47,6 +47,7 @@ def _respuesta_sesion(organizador, codigo=status.HTTP_200_OK):
     )
 
 
+@documentacion.HEALTH
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def health(request):
@@ -68,6 +69,8 @@ def health(request):
     )
 
 
+@documentacion.ORGANIZADOR_CONSULTAR
+@documentacion.ORGANIZADOR_ACTUALIZAR
 @api_view(["GET", "PATCH", "PUT"])
 def organizador_actual(request):
     organizador = request.user
@@ -84,6 +87,8 @@ def organizador_actual(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@documentacion.EVENTOS_LISTAR
+@documentacion.EVENTOS_CREAR
 @api_view(["GET", "POST"])
 def eventos(request):
     if request.method == "GET":
@@ -110,6 +115,9 @@ def _obtener_evento(evento_id, organizador):
         )
 
 
+@documentacion.EVENTO_CONSULTAR
+@documentacion.EVENTO_EDITAR
+@documentacion.EVENTO_ELIMINAR
 @api_view(["GET", "PATCH", "DELETE"])
 def evento_detalle(request, evento_id):
     evento, error = _obtener_evento(evento_id, request.user)
@@ -130,6 +138,8 @@ def evento_detalle(request, evento_id):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@documentacion.GESTIONES_LISTAR
+@documentacion.GESTIONES_CREAR
 @api_view(["GET", "POST"])
 def subtareas_evento(request, evento_id):
     evento, error = _obtener_evento(evento_id, request.user)
@@ -332,6 +342,7 @@ def progreso_evento(request, evento_id):
     )
 
 
+@documentacion.CONFLICTOS
 @api_view(["GET"])
 def conflictos_evento(request, evento_id):
     evento, error = _obtener_evento(evento_id, request.user)
@@ -375,6 +386,7 @@ def conflictos_evento(request, evento_id):
     )
 
 
+@documentacion.LOGIN
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([AllowAny])
@@ -393,6 +405,7 @@ def login(request):
     return _respuesta_sesion(organizador)
 
 
+@documentacion.REGISTRO
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([AllowAny])
@@ -425,6 +438,8 @@ def registro(request):
     return _respuesta_sesion(organizador, status.HTTP_201_CREATED)
 
 
+@documentacion.SESION_CONSULTAR
+@documentacion.SESION_CERRAR
 @api_view(["GET", "DELETE"])
 def sesion_actual(request):
     if request.method == "DELETE":
