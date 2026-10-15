@@ -11,6 +11,7 @@ from . import documentacion
 from .autenticacion import MENSAJE_CREDENCIALES, crear_sesion
 from .carga import (
     carga_guardada,
+    dias_sobrecargados,
     evaluar_carga,
     fecha_del_evento,
     formatear_horas,
@@ -81,10 +82,69 @@ def organizador_actual(request):
     # PUT y PATCH actualizan el límite. El resto de la cuenta es de solo lectura,
     # así que no se exige reenviar nombre ni correo.
     serializer = OrganizadorSerializer(organizador, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    nuevo = serializer.validated_data.get("limite_diario_horas", organizador.limite_diario_horas)
+    anterior = organizador.limite_diario_horas
+    dias = _dias_con_limite(organizador, nuevo)
+
+    # Solo bajar el límite puede crear sobrecargas nuevas. Subirlo nunca pide confirmación,
+    # aunque queden días por encima: el cambio los alivia.
+    confirmado = request.data.get("confirmar_sobrecarga") in VALORES_DE_CONFIRMACION
+    if dias and nuevo < anterior and not confirmado:
+        return Response(
+            {
+                "codigo": "sobrecarga_por_limite",
+                "detail": _texto_dias_por_encima(nuevo, len(dias)),
+                "limite_diario_horas": nuevo,
+                "limite_actual": anterior,
+                "dias": dias,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    serializer.save()
+    return Response({**serializer.data, "dias_sobrecargados": dias})
+
+
+def _dias_con_limite(organizador, limite):
+    """Días sobrecargados si el organizador tuviera este límite. No guarda nada."""
+    anterior = organizador.limite_diario_horas
+    organizador.limite_diario_horas = limite
+    try:
+        return dias_sobrecargados(organizador)
+    finally:
+        organizador.limite_diario_horas = anterior
+
+
+def _texto_dias_por_encima(limite, cantidad):
+    dias = "1 día quedaría" if cantidad == 1 else f"{cantidad} días quedarían"
+    return f"Con un límite de {formatear_horas(limite)}h, {dias} por encima del límite."
+
+
+@documentacion.SOBRECARGA_ORGANIZADOR
+@api_view(["GET"])
+def sobrecarga_organizador(request):
+    """Días desde hoy por encima del límite, en todos los eventos del organizador.
+
+    Con ?limite=4 revisa ese límite sin guardarlo, para avisar en Configuración
+    antes de que el organizador confirme el cambio.
+    """
+    organizador = request.user
+    limite = organizador.limite_diario_horas
+    if "limite" in request.query_params:
+        prueba = OrganizadorSerializer(
+            organizador,
+            data={"limite_diario_horas": request.query_params["limite"]},
+            partial=True,
+        )
+        if not prueba.is_valid():
+            return Response(prueba.errors, status=status.HTTP_400_BAD_REQUEST)
+        limite = prueba.validated_data["limite_diario_horas"]
+
+    dias = _dias_con_limite(organizador, limite)
+    return Response({"limite_diario_horas": limite, "tiene_sobrecarga": bool(dias), "dias": dias})
 
 
 @documentacion.EVENTOS_LISTAR
@@ -153,10 +213,28 @@ def subtareas_evento(request, evento_id):
     datos = request.data.copy()
     datos["evento"] = evento.id
     serializer = SubtareaLogisticaSerializer(data=datos)
-    if serializer.is_valid():
-        subtarea = serializer.save()
-        return Response(SubtareaLogisticaSerializer(subtarea).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Una gestión nueva ocupa horas en su día igual que una reprogramada,
+    # así que pasa por la misma revisión. Si nace ejecutada, no ocupa nada.
+    validados = serializer.validated_data
+    cuenta = validados.get("estado", "PENDIENTE") != "EJECUTADA"
+    if cuenta:
+        fecha = validados["fecha_objetivo"]
+        horas = validados["horas_estimadas"]
+        carga = evaluar_carga(request.user, fecha, horas)
+        if carga["supera_dia"]:
+            return _respuesta_dia_excedido(carga)
+        confirmado = request.data.get("confirmar_sobrecarga") in VALORES_DE_CONFIRMACION
+        if carga["supera_limite"] and not confirmado:
+            return _respuesta_sobrecarga(carga, sugerir_fecha(request.user, evento, fecha, horas))
+
+    subtarea = serializer.save()
+    cuerpo = SubtareaLogisticaSerializer(subtarea).data
+    if cuenta:
+        cuerpo["carga_del_dia"] = carga_guardada(request.user, subtarea.fecha_objetivo)
+    return Response(cuerpo, status=status.HTTP_201_CREATED)
 
 
 @documentacion.ACTUALIZAR_SUBTAREA
@@ -217,47 +295,54 @@ def _revisar_sobrecarga(request, subtarea, datos):
         return None
 
     carga = evaluar_carga(request.user, fecha, horas, excluir_id=subtarea.id)
-    cifras = {
+
+    # Reducir horas sin mover la gestión siempre alivia el día. No se bloquea aunque
+    # el día siga por encima de 24 h: sería impedirle al usuario arreglar el problema.
+    solo_reduce = not cambia_fecha and not vuelve_a_contar and horas < subtarea.horas_estimadas
+    if carga["supera_dia"] and not solo_reduce:
+        return _respuesta_dia_excedido(carga)
+
+    confirmado = request.data.get("confirmar_sobrecarga") in VALORES_DE_CONFIRMACION
+    if carga["supera_limite"] and not confirmado:
+        fecha_sugerida = sugerir_fecha(
+            request.user,
+            subtarea.evento,
+            fecha,
+            horas,
+            excluir_id=subtarea.id,
+            # Al posponer, sugerir un día anterior llevaría a otro error.
+            desde=primer_dia_para_posponer(subtarea) if estado == "POSPUESTA" else None,
+        )
+        return _respuesta_sobrecarga(carga, fecha_sugerida)
+
+    return None
+
+
+def _cifras(carga):
+    return {
         "fecha": carga["fecha"],
         "horas_planificadas": carga["horas_planificadas"],
         "limite_diario_horas": carga["limite_diario_horas"],
         "exceso_horas": carga["exceso_horas"],
     }
 
-    # Reducir horas sin mover la gestión siempre alivia el día. No se bloquea aunque
-    # el día siga por encima de 24 h: sería impedirle al usuario arreglar el problema.
-    solo_reduce = not cambia_fecha and not vuelve_a_contar and horas < subtarea.horas_estimadas
-    if carga["supera_dia"] and not solo_reduce:
-        return Response(
-            {"codigo": "dia_excedido", "detail": MENSAJE_DIA_EXCEDIDO, **cifras},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
-    confirmado = request.data.get("confirmar_sobrecarga") in VALORES_DE_CONFIRMACION
-    if carga["supera_limite"] and not confirmado:
-        detalle = (
-            f"Quedarías con {formatear_horas(carga['horas_planificadas'])}h de gestión "
-            f"planificadas (límite {formatear_horas(carga['limite_diario_horas'])}h)"
-        )
-        return Response(
-            {
-                "codigo": "sobrecarga_diaria",
-                "detail": detalle,
-                "fecha_sugerida": sugerir_fecha(
-                    request.user,
-                    subtarea.evento,
-                    fecha,
-                    horas,
-                    excluir_id=subtarea.id,
-                    # Al posponer, sugerir un día anterior llevaría a otro error.
-                    desde=primer_dia_para_posponer(subtarea) if estado == "POSPUESTA" else None,
-                ),
-                **cifras,
-            },
-            status=status.HTTP_409_CONFLICT,
-        )
+def _respuesta_dia_excedido(carga):
+    return Response(
+        {"codigo": "dia_excedido", "detail": MENSAJE_DIA_EXCEDIDO, **_cifras(carga)},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
-    return None
+
+def _respuesta_sobrecarga(carga, fecha_sugerida):
+    detalle = (
+        f"Quedarías con {formatear_horas(carga['horas_planificadas'])}h de gestión "
+        f"planificadas (límite {formatear_horas(carga['limite_diario_horas'])}h)"
+    )
+    return Response(
+        {"codigo": "sobrecarga_diaria", "detail": detalle, "fecha_sugerida": fecha_sugerida, **_cifras(carga)},
+        status=status.HTTP_409_CONFLICT,
+    )
 
 
 @documentacion.SUGERENCIA_POSPONER

@@ -433,3 +433,47 @@ Porcentaje de gestiones `EJECUTADA` sobre el total del evento (US-10). No se gua
 | El evento es del organizador | 200 |
 | Sin sesión | 401 |
 | Evento de otra cuenta o inexistente | 404 |
+
+### Avisos de sobrecarga fuera de la gestión
+
+Pedido del docente en la retroalimentación del Sprint 3: avisar y ofrecer salidas cuando un día queda por encima del límite, también al cambiar el límite y al crear gestiones. Editar, reprogramar y posponer ya pasaban por esa revisión.
+
+**Días por encima del límite — `GET /api/organizador/sobrecarga/`**
+
+Días desde hoy que pasan el límite, sumando todos los eventos del organizador. No cuenta las ejecutadas. Sirve para avisar en Configuración y marcar días en `/hoy`. Con `?limite=4` revisa ese límite sin guardarlo.
+
+```json
+{
+  "limite_diario_horas": "6.0",
+  "tiene_sobrecarga": true,
+  "dias": [
+    {
+      "fecha": "2026-10-20",
+      "horas_planificadas": "8.0",
+      "limite_diario_horas": "6.0",
+      "exceso_horas": "2.0",
+      "gestiones": [
+        {
+          "id": 12, "evento": 3, "evento_nombre": "Boda de Ana", "nombre": "Catering",
+          "horas_estimadas": "5.0", "estado": "PENDIENTE",
+          "fecha_sugerida": "2026-10-21", "horas_sugeridas": "3.0"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`fecha_sugerida` es el primer día donde la gestión cabe entera si se mueve. `horas_sugeridas` son las horas con las que cabe sin moverla; es `null` si esa gestión sola no alcanza a resolver el día.
+
+**Cambiar el límite — `PATCH` o `PUT /api/organizador/`**
+
+| Caso | Código | Qué pasa |
+| --- | --- | --- |
+| El límite baja y quedan días por encima | 409 | `codigo: sobrecarga_por_limite`, `detail`, `limite_actual` y `dias` con la misma forma del listado. No guarda. |
+| Lo mismo con `"confirmar_sobrecarga": true` | 200 | Guarda. `dias_sobrecargados` trae los días afectados. |
+| Sube el límite, o baja sin afectar días | 200 | Guarda. `dias_sobrecargados` trae lo que siga por encima, o `[]`. |
+
+**Crear una gestión — `POST /api/events/{evento_id}/subtasks/`**
+
+Misma revisión que reprogramar: 409 `sobrecarga_diaria` con cifras y `fecha_sugerida` si el día pasa el límite, y no crea nada. Con `"confirmar_sobrecarga": true` la crea. Más de 24 h en el día responde 400 `dia_excedido` siempre. La respuesta 201 trae `carga_del_dia`.

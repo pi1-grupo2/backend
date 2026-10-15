@@ -7,7 +7,13 @@ Se deja en un módulo aparte para que views.py siga leyéndose como lógica de n
 """
 
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
 from rest_framework import serializers
 
 from .models import SubtareaLogistica
@@ -50,6 +56,29 @@ SOBRECARGA = inline_serializer(
 DIA_EXCEDIDO = inline_serializer(
     name="DiaExcedido",
     fields={"codigo": serializers.CharField(), "detail": serializers.CharField(), **CIFRAS_DEL_DIA},
+)
+
+GESTION_DEL_DIA = inline_serializer(
+    name="GestionDelDiaSobrecargado",
+    many=True,
+    fields={
+        "id": serializers.IntegerField(),
+        "evento": serializers.IntegerField(),
+        "evento_nombre": serializers.CharField(),
+        "nombre": serializers.CharField(),
+        "horas_estimadas": serializers.DecimalField(max_digits=5, decimal_places=1),
+        "estado": serializers.CharField(),
+        "fecha_sugerida": serializers.DateField(allow_null=True, help_text="Día donde cabe entera si se mueve."),
+        "horas_sugeridas": serializers.DecimalField(
+            max_digits=5, decimal_places=1, allow_null=True, help_text="Horas con las que cabe sin moverla."
+        ),
+    },
+)
+
+DIA_SOBRECARGADO = inline_serializer(
+    name="DiaSobrecargado",
+    many=True,
+    fields={**CIFRAS_DEL_DIA, "gestiones": GESTION_DEL_DIA},
 )
 
 CAMBIO_DE_GESTION = inline_serializer(
@@ -199,8 +228,12 @@ class EventoEntradaSerializer(EventoSerializer):
 class GestionEntradaSerializer(SubtareaLogisticaSerializer):
     """Solo para el esquema: el evento sale de la URL, no del cuerpo."""
 
+    confirmar_sobrecarga = serializers.BooleanField(required=False, write_only=True)
+
     class Meta(SubtareaLogisticaSerializer.Meta):
-        fields = [campo for campo in SubtareaLogisticaSerializer.Meta.fields if campo != "evento"]
+        fields = [campo for campo in SubtareaLogisticaSerializer.Meta.fields if campo != "evento"] + [
+            "confirmar_sobrecarga"
+        ]
 
 
 SESION_ABIERTA = inline_serializer(
@@ -293,17 +326,85 @@ ORGANIZADOR_ACTUALIZAR = extend_schema(
     methods=["PATCH", "PUT"],
     tags=[ETIQUETA_ORGANIZADOR],
     summary="Cambiar el límite diario de horas",
-    description="Entre 1 y 16, solo horas completas o medias (6 o 6.5). El correo no se puede cambiar.",
+    description=(
+        "Entre 1 y 16, solo horas completas o medias (6 o 6.5). El correo no se puede cambiar.\n\n"
+        "Si el límite baja y algún día desde hoy queda por encima, responde 409 con esos días y no guarda. "
+        "Para guardar igual se reenvía con confirmar_sobrecarga en true. La respuesta 200 trae "
+        "dias_sobrecargados, vacío si no queda ninguno."
+    ),
     request=inline_serializer(
         name="CambioDeLimite",
-        fields={"limite_diario_horas": serializers.DecimalField(max_digits=4, decimal_places=1)},
+        fields={
+            "limite_diario_horas": serializers.DecimalField(max_digits=4, decimal_places=1),
+            "confirmar_sobrecarga": serializers.BooleanField(required=False),
+        },
     ),
     responses={
-        200: OrganizadorSerializer,
+        200: inline_serializer(
+            name="LimiteGuardado",
+            fields={
+                "id": serializers.IntegerField(),
+                "nombre": serializers.CharField(),
+                "identidad_externa": serializers.CharField(allow_null=True),
+                "correo": serializers.EmailField(),
+                "limite_diario_horas": serializers.DecimalField(max_digits=4, decimal_places=1),
+                "creado_en": serializers.DateTimeField(),
+                "dias_sobrecargados": DIA_SOBRECARGADO,
+            },
+        ),
+        400: OpenApiResponse(OpenApiTypes.OBJECT, description="Error en limite_diario_horas."),
+        401: ERROR_DETALLE,
+        409: inline_serializer(
+            name="SobrecargaPorLimite",
+            fields={
+                "codigo": serializers.CharField(),
+                "detail": serializers.CharField(),
+                "limite_diario_horas": serializers.DecimalField(max_digits=4, decimal_places=1),
+                "limite_actual": serializers.DecimalField(max_digits=4, decimal_places=1),
+                "dias": DIA_SOBRECARGADO,
+            },
+        ),
+    },
+    examples=[
+        OpenApiExample("Límite de 6 horas", value={"limite_diario_horas": 6}, request_only=True),
+        OpenApiExample(
+            "Bajar a 4 horas sabiendo que hay días llenos",
+            value={"limite_diario_horas": 4, "confirmar_sobrecarga": True},
+            request_only=True,
+        ),
+    ],
+)
+
+SOBRECARGA_ORGANIZADOR = extend_schema(
+    tags=[ETIQUETA_ORGANIZADOR],
+    summary="Días por encima del límite diario",
+    description=(
+        "Días desde hoy que pasan el límite, sumando las gestiones de todos los eventos del organizador. "
+        "No cuenta las ejecutadas. Cada gestión trae dos salidas: fecha_sugerida para moverla y "
+        "horas_sugeridas para dejarla en su día con menos horas.\n\n"
+        "Con ?limite=4 revisa ese límite sin guardarlo."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "limite",
+            OpenApiTypes.NUMBER,
+            OpenApiParameter.QUERY,
+            required=False,
+            description="Límite a revisar sin guardarlo. Mismas reglas que en Configuración.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="SobrecargaDelOrganizador",
+            fields={
+                "limite_diario_horas": serializers.DecimalField(max_digits=4, decimal_places=1),
+                "tiene_sobrecarga": serializers.BooleanField(),
+                "dias": DIA_SOBRECARGADO,
+            },
+        ),
         400: OpenApiResponse(OpenApiTypes.OBJECT, description="Error en limite_diario_horas."),
         401: ERROR_DETALLE,
     },
-    examples=[OpenApiExample("Límite de 6 horas", value={"limite_diario_horas": 6}, request_only=True)],
 )
 
 EVENTOS_LISTAR = extend_schema(
@@ -367,12 +468,18 @@ GESTIONES_CREAR = extend_schema(
     methods=["POST"],
     tags=[ETIQUETA_GESTIONES],
     summary="Agregar una gestión al plan del evento",
+    description=(
+        "Pasa por la misma revisión de sobrecarga que reprogramar. Si el día queda por encima del límite, "
+        "responde 409 con las cifras y fecha_sugerida, y no crea nada. Con confirmar_sobrecarga en true "
+        "la crea igual. Un día con más de 24 h nunca se guarda. La respuesta 201 trae carga_del_dia."
+    ),
     request=GestionEntradaSerializer,
     responses={
         201: SubtareaLogisticaSerializer,
-        400: OpenApiResponse(OpenApiTypes.OBJECT, description="Error por campo."),
+        400: OpenApiResponse(OpenApiTypes.OBJECT, description="Error por campo, o codigo dia_excedido."),
         401: ERROR_DETALLE,
         404: ERROR_DETALLE,
+        409: SOBRECARGA,
     },
 )
 
