@@ -1,0 +1,193 @@
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+Found 134 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: corsheaders, drf_spectacular, messages, rest_framework, staticfiles
+  Apply all migrations: admin, api, auth, contenttypes, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying api.0001_initial... OK
+  Applying api.0002_organizador_demo... OK
+  Applying api.0003_login_local... OK
+  Applying api.0004_sesion_expira... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying sessions.0001_initial...test_avisa_con_los_dias_que_quedarian_por_encima_y_no_guarda (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_con_confirmacion_guarda_y_devuelve_los_dias (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_el_mensaje_cuenta_varios_dias (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_hoy_si_cuenta (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_no_cuenta_dias_pasados_ni_gestiones_ejecutadas (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_put_tambien_avisa (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_sin_dias_afectados_guarda_sin_avisar (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_subir_el_limite_no_pide_confirmacion_aunque_queden_dias_por_encima (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_suma_todos_los_eventos_del_organizador_y_no_los_ajenos (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_un_dia_justo_en_el_nuevo_limite_no_es_sobrecarga (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_un_limite_invalido_sigue_respondiendo_400 (api.tests.test_alertas_sobrecarga.BajarLimiteTests) ... ok
+test_con_confirmacion_crea_aunque_pase_el_limite (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_con_cupo_crea_y_devuelve_la_carga_del_dia (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_dia_lleno_avisa_con_cifras_y_fecha_sugerida_y_no_crea (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_justo_en_el_limite_crea (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_los_errores_por_campo_van_antes_que_la_sobrecarga (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_nunca_crea_un_dia_de_mas_de_24_horas (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_suma_las_gestiones_de_otros_eventos (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_una_gestion_que_nace_ejecutada_no_ocupa_horas (api.tests.test_alertas_sobrecarga.CrearGestionTests) ... ok
+test_lista_el_dia_con_las_gestiones_de_todos_los_eventos (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_no_sugiere_reducir_si_la_gestion_sola_no_alcanza (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_ofrece_mover_o_reducir_cada_gestion (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_pide_sesion (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_revisa_un_limite_sin_guardarlo (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_sin_sobrecarga (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_un_limite_de_prueba_invalido_responde_400 (api.tests.test_alertas_sobrecarga.ListadoDeSobrecargaTests) ... ok
+test_el_porcentaje_es_ejecutadas_sobre_el_total (api.tests.test_avance.ProgresoTests) ... ok
+test_el_progreso_de_otro_organizador_responde_404 (api.tests.test_avance.ProgresoTests) ... ok
+test_sin_gestiones_el_progreso_es_cero (api.tests.test_avance.ProgresoTests) ... ok
+test_sin_sesion_responde_401 (api.tests.test_avance.ProgresoTests) ... ok
+test_una_pospuesta_no_cuenta_como_ejecutada (api.tests.test_avance.ProgresoTests) ... ok
+test_la_gestion_de_otra_cuenta_responde_404 (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_marcar_ejecutada_conserva_la_nota (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_marcar_ejecutada_guarda_el_estado (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_posponer_guarda_la_nota (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_posponer_sin_nota_no_borra_la_que_ya_estaba (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_un_estado_desconocido_no_se_guarda (api.tests.test_avance.RegistroDeAvanceTests) ... ok
+test_los_errores_conocidos_de_drf_no_cambian (api.tests.test_errores.ErrorInesperadoTests) ... ok
+test_un_error_inesperado_responde_json_sin_detalle_tecnico (api.tests.test_errores.ErrorInesperadoTests) ... ok
+test_volver_a_pendiente_con_cupo_no_pide_confirmacion (api.tests.test_estado.DesmarcarEjecutadaTests) ... ok
+test_volver_a_pendiente_en_un_dia_lleno_pide_confirmacion (api.tests.test_estado.DesmarcarEjecutadaTests) ... ok
+test_estado_desconocido_se_rechaza_con_mensaje_en_espanol (api.tests.test_estado.MarcarEjecutadaTests) ... ok
+test_marcar_como_ejecutada_no_cambia_la_fecha_ni_las_horas (api.tests.test_estado.MarcarEjecutadaTests) ... ok
+test_posponer_a_un_dia_lleno_pide_confirmacion_y_no_guarda (api.tests.test_estado.PosponerConSobrecargaTests) ... ok
+test_posponer_a_un_dia_lleno_se_guarda_si_el_usuario_confirma (api.tests.test_estado.PosponerConSobrecargaTests) ... ok
+test_la_nota_es_opcional (api.tests.test_estado.PosponerTests) ... ok
+test_no_se_puede_posponer_despues_de_la_fecha_del_evento (api.tests.test_estado.PosponerTests) ... ok
+test_posponer_a_la_misma_fecha_se_rechaza (api.tests.test_estado.PosponerTests) ... ok
+test_posponer_a_una_fecha_anterior_se_rechaza (api.tests.test_estado.PosponerTests) ... ok
+test_posponer_guarda_estado_fecha_y_nota (api.tests.test_estado.PosponerTests) ... ok
+test_posponer_sin_fecha_nueva_conserva_la_fecha (api.tests.test_estado.PosponerTests) ... ok
+test_reprogramar_una_pospuesta_sin_enviar_estado_sigue_las_reglas_normales (api.tests.test_estado.PosponerTests) ... ok
+test_una_ejecutada_no_se_puede_posponer (api.tests.test_estado.PosponerTests) ... ok
+test_una_nota_con_solo_espacios_se_guarda_vacia (api.tests.test_estado.PosponerTests) ... ok
+test_una_vencida_se_puede_posponer_a_hoy (api.tests.test_estado.PosponerTests) ... ok
+test_cuenta_cada_estado_y_calcula_el_porcentaje (api.tests.test_progreso.ProgresoEventoTests) ... ok
+test_el_porcentaje_se_redondea_a_un_decimal (api.tests.test_progreso.ProgresoEventoTests) ... ok
+test_marcar_una_gestion_como_ejecutada_sube_el_progreso (api.tests.test_progreso.ProgresoEventoTests) ... ok
+test_no_cuenta_gestiones_de_otros_eventos (api.tests.test_progreso.ProgresoEventoTests) ... ok
+test_todas_ejecutadas_da_cien (api.tests.test_progreso.ProgresoEventoTests) ... ok
+test_cada_cuenta_guarda_su_propio_limite (api.tests.test_registro.RegistroAislamientoTests) ... ok
+test_el_correo_de_la_cuenta_demo_no_se_puede_reutilizar (api.tests.test_registro.RegistroCorreoRepetidoTests) ... ok
+test_el_mismo_correo_con_mayusculas_tambien_responde_409 (api.tests.test_registro.RegistroCorreoRepetidoTests) ... ok
+test_un_correo_ya_registrado_responde_409 (api.tests.test_registro.RegistroCorreoRepetidoTests) ... ok
+test_crea_la_cuenta_y_responde_como_el_login (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_el_correo_se_guarda_en_minusculas_y_sin_espacios (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_el_token_recibido_sirve_para_consultar_la_sesion (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_la_contrasena_se_guarda_con_hash (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_la_cuenta_nueva_tiene_limite_de_seis_horas (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_la_respuesta_no_incluye_la_contrasena (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_no_exige_sesion_previa (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_se_puede_iniciar_sesion_con_la_cuenta_creada (api.tests.test_registro.RegistroExitosoTests) ... ok
+test_contrasena_de_ocho_caracteres_se_acepta (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_contrasena_de_siete_caracteres (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_correo_mal_formado (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_cuerpo_vacio_informa_los_tres_campos (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_sin_contrasena (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_sin_correo (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_sin_nombre (api.tests.test_registro.RegistroValidacionTests) ... ok
+test_el_conflicto_no_guarda_el_cambio (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_el_mensaje_muestra_medias_horas_con_coma (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_escenario_1_conflicto_con_cifras (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_escenario_2_sin_conflicto_cuando_queda_justo_en_el_limite (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_las_gestiones_ejecutadas_no_cuentan (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_las_gestiones_pospuestas_si_cuentan (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_no_suma_las_gestiones_de_otro_organizador (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_suma_las_gestiones_de_todos_los_eventos_del_organizador (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_usa_el_limite_configurado_por_el_organizador (api.tests.test_sobrecarga.DetectarConflictoTests) ... ok
+test_no_se_puede_reprogramar_a_una_fecha_pasada (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_no_se_puede_reprogramar_despues_de_la_fecha_del_evento (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_no_se_puede_reprogramar_la_gestion_de_otro_organizador (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_reprogramar_guarda_y_devuelve_la_nueva_fecha (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_una_vencida_reprogramada_para_hoy_cambia_de_grupo (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_una_vencida_se_puede_marcar_como_ejecutada_sin_cambiar_la_fecha (api.tests.test_sobrecarga.FechaDeReprogramacionTests) ... ok
+test_no_sugiere_fecha_si_ningun_dia_tiene_cupo (api.tests.test_sobrecarga.FechaSugeridaTests) ... ok
+test_exactamente_24_horas_se_permite_con_confirmacion (api.tests.test_sobrecarga.LimiteDelDiaTests) ... ok
+test_reducir_horas_se_permite_aunque_el_dia_siga_sobre_24 (api.tests.test_sobrecarga.LimiteDelDiaTests) ... ok
+test_superar_24_horas_se_rechaza (api.tests.test_sobrecarga.LimiteDelDiaTests) ... ok
+test_superar_24_horas_se_rechaza_aunque_el_usuario_confirme (api.tests.test_sobrecarga.LimiteDelDiaTests) ... ok
+test_acepta_medias_horas (api.tests.test_sobrecarga.LimiteDiarioTests) ... ok
+test_put_guarda_el_limite_y_no_borra_la_cuenta (api.tests.test_sobrecarga.LimiteDiarioTests) ... ok
+test_put_rechaza_un_limite_invalido_sin_guardar (api.tests.test_sobrecarga.LimiteDiarioTests) ... ok
+test_rechaza_valores_fuera_del_rango (api.tests.test_sobrecarga.LimiteDiarioTests) ... ok
+test_rechaza_valores_que_no_son_horas_completas_ni_medias (api.tests.test_sobrecarga.LimiteDiarioTests) ... ok
+test_suma_por_organizador_y_no_solo_por_evento (api.tests.test_sobrecarga.ListadoDeConflictosTests) ... ok
+test_cambiar_solo_el_nombre_no_dispara_conflicto (api.tests.test_sobrecarga.NoRevisarCuandoNoCorrespondeTests) ... ok
+test_enviar_la_misma_fecha_no_dispara_conflicto (api.tests.test_sobrecarga.NoRevisarCuandoNoCorrespondeTests) ... ok
+test_la_gestion_que_se_edita_no_se_cuenta_dos_veces (api.tests.test_sobrecarga.NoRevisarCuandoNoCorrespondeTests) ... ok
+test_marcar_como_ejecutada_en_un_dia_sobrecargado_no_pide_confirmacion (api.tests.test_sobrecarga.NoRevisarCuandoNoCorrespondeTests) ... ok
+test_el_listado_de_conflictos_queda_vacio_despues_de_resolver (api.tests.test_sobrecarga.ResolverConflictoTests) ... ok
+test_escenario_1_resolver_moviendo_a_un_dia_con_cupo (api.tests.test_sobrecarga.ResolverConflictoTests) ... ok
+test_escenario_2_el_conflicto_persiste_si_la_reduccion_no_alcanza (api.tests.test_sobrecarga.ResolverConflictoTests) ... ok
+test_escenario_2_reducir_horas_resuelve_el_conflicto (api.tests.test_sobrecarga.ResolverConflictoTests) ... ok
+test_guardar_con_sobrecarga_cuando_el_usuario_confirma (api.tests.test_sobrecarga.ResolverConflictoTests) ... ok
+test_ejecucion_repetida_http_200_conserva_fecha_horas_y_nota (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_con_evento_incorrecto_http_404_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_evento_ajeno_http_404_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_libera_carga_y_actualiza_progreso_http_204_200_404 (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_sin_sesion_http_401_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_patch_no_debe_trasladar_subtarea_a_evento_ajeno_http_400 (api.tests.test_subtareas_qa.SubtareasQATests)
+Regresión de autorización: se espera rechazo, nunca traslado entre cuentas. ... FAIL
+test_validaciones_patch_http_400_sin_cambios (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_el_409_al_posponer_no_sugiere_un_dia_anterior_a_la_fecha_actual (api.tests.test_sugerencia.SugerenciaEnElConflictoAlPosponerTests) ... ok
+test_el_409_al_reprogramar_sigue_sugiriendo_desde_hoy (api.tests.test_sugerencia.SugerenciaEnElConflictoAlPosponerTests) ... ok
+test_consultar_la_sugerencia_no_cambia_la_gestion (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_cuenta_las_gestiones_de_otros_eventos_del_organizador (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_la_gestion_de_otra_cuenta_responde_404 (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_no_cuenta_las_ejecutadas_de_ese_dia (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_salta_los_dias_que_quedarian_por_encima_del_limite (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_sin_cupo_antes_del_evento_no_sugiere_nada (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_sin_sesion_responde_401 (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_sugiere_el_dia_siguiente_si_tiene_cupo (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_un_dia_que_queda_justo_en_el_limite_sirve (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_una_ejecutada_no_tiene_sugerencia (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+test_una_vencida_busca_desde_hoy (api.tests.test_sugerencia.SugerenciaPosponerTests) ... ok
+
+======================================================================
+FAIL: test_patch_no_debe_trasladar_subtarea_a_evento_ajeno_http_400 (api.tests.test_subtareas_qa.SubtareasQATests)
+Regresión de autorización: se espera rechazo, nunca traslado entre cuentas.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/natalia/Escritorio/proyectos/backend/api/tests/test_subtareas_qa.py", line 82, in test_patch_no_debe_trasladar_subtarea_a_evento_ajeno_http_400
+    self.assertEqual(
+AssertionError: Tuples differ: (200, 2) != (400, 1)
+
+First differing element 0:
+200
+400
+
+- (200, 2)
+?  ^    ^
+
++ (400, 1)
+?  ^    ^
+ : PATCH debe rechazar el evento ajeno y conservar el evento original.
+
+----------------------------------------------------------------------
+Ran 134 tests in 13.450s
+
+FAILED (failures=1)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+ OK
+System check identified no issues (0 silenced).
