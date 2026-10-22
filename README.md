@@ -62,16 +62,17 @@ credenciales, pero no es el entorno del equipo.
 
 | Variable | Para qué sirve |
 | --- | --- |
-| `DJANGO_SECRET_KEY` | Clave de firma de Django. En Render se genera sola |
-| `DJANGO_DEBUG` | `true` en local, `false` en producción |
-| `DJANGO_ALLOWED_HOSTS` | Dominios que puede servir la API. En Render se agrega solo |
-| `CORS_ALLOWED_ORIGINS` | URLs del frontend autorizadas a llamar a la API |
-| `DATABASE_URL` | Cadena de conexión de Supabase, usando el Session pooler |
+| `DJANGO_SECRET_KEY` | Clave secreta utilizada por Django para la firma criptográfica. Debe mantenerse privada y configurarse en Render para producción. |
+| `DJANGO_DEBUG` | Controla el modo de depuración: `true` en desarrollo local y `false` en producción. |
+| `DJANGO_ALLOWED_HOSTS` | Define los dominios autorizados para acceder al backend, incluyendo el dominio de Render. |
+| `CORS_ALLOWED_ORIGINS` | Define los orígenes del frontend autorizados para realizar solicitudes a la API, incluyendo Vercel y el entorno local. |
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL en Supabase mediante el Session Pooler. |
 
 El archivo `.env` está en `.gitignore` y no se sube nunca. Una credencial que entra al historial de
 Git queda visible aunque después se borre del archivo.
 
 ## Estructura
+
 backend/
 ├── config/
 │   ├── settings.py
@@ -79,12 +80,22 @@ backend/
 │   └── wsgi.py
 ├── api/
 │   ├── migrations/
+│   ├── tests/
+│   │   ├── settings_qa.py
+│   │   └── test_subtareas_qa.py
 │   ├── models.py
 │   ├── serializers.py
 │   ├── urls.py
 │   └── views.py
 ├── docs/
+│   ├── qa/
+│   │   ├── ejecutar_sin_migraciones.py
+│   │   ├── subtareas_reporte.md
+│   │   ├── subtareas_resultados.txt
+│   │   ├── subtareas_regresion_resultados.txt
+│   │   └── subtareas_suite_corregida_resultados.txt
 │   └── modelo-de-datos.md
+├── AGENTS.md
 ├── build.sh
 ├── render.yaml
 ├── requirements.txt
@@ -92,10 +103,17 @@ backend/
 └── .env.example
 
 ## Convenciones de trabajo
-Commits en formato Conventional Commits: feat:, fix:, docs:, refactor:, test:, chore:
-Ramas: feature/<descripcion>-<iniciales>
-main está protegida. Nada entra sin pull request aprobado por otra persona del equipo
-Los comentarios del PR se resuelven antes de fusionar
+
+- **Commits:** utilizar el formato Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`, `chore:`).
+- **Ramas de trabajo:** crear ramas independientes a partir de `main`. Se recomienda el formato `feature/<descripcion>-<iniciales>`; también se utilizan ramas individuales como `YoselinC`.
+- **Rama principal:** `main` está protegida. Los cambios deben integrarse mediante Pull Request (PR) aprobado por otra persona del equipo.
+- **Pull Requests:** incluir un título descriptivo, resumen de los cambios realizados, pruebas ejecutadas y evidencias cuando corresponda.
+- **Revisión de código:** resolver los comentarios y observaciones del PR antes de fusionarlo con `main`.
+- **Pruebas QA:** ejecutar las pruebas automatizadas correspondientes antes de solicitar la aprobación del PR.
+- **Seguridad:** no subir contraseñas, tokens, credenciales ni archivos `.env` al repositorio.
+- **Base de datos:** realizar las pruebas automatizadas en entornos aislados, evitando modificar los datos reales de Supabase.
+- **Documentación:** actualizar el `README.md` y las evidencias de QA cuando se incorporen cambios relevantes.
+- **Integración:** fusionar los cambios con `main` únicamente después de la revisión y aprobación correspondiente.
 
 
 ## Despliegue
@@ -114,11 +132,12 @@ El script build.sh instala las dependencias, genera los archivos estáticos y ej
 migraciones de Django durante el proceso de construcción.
 
 URL 
-API --- Pendiente 
-Frondtend --- Pendiente 
+API --- https://pi1-grupo2-api.onrender.com/api/docs/
+Frondtend --- https://pi1-grupo2-frontend.vercel.app/login
 ______________________________________________________________________________________________________________________________
 
-## ENDPOINTS IMPLEMENTADOS SPRINT 1
+## ENDPOINTS IMPLEMENTADOS 
+API docuementada y completa: https://pi1-grupo2-frontend.vercel.app/login
 
 RESUMEN
 
@@ -155,8 +174,8 @@ El script build.sh instala las dependencias, genera los archivos estáticos y ej
 migraciones de Django durante el proceso de construcción.
 
 Entorno	URL
-API en producción	pendiente
-Frontend	pendienteal organizador de eventos.
+API https://pi1-grupo2-api.onrender.com/api/docs/
+Frontend https://pi1-grupo2-frontend.vercel.app/login.
 
 Campos principales:
 
@@ -363,60 +382,99 @@ Las subtareas en estado EJECUTADA no se incluyen en el cálculo de conflictos
 
 ________________________________________________________________________________________________________________________
 
-ESTADO DEL BACKEND 
+## ESTADO DEL BACKEND
 
-Sprint 1. Implementación inicial de los endpoints de negocio.
+### Sprint 1 — Implementación inicial de los endpoints de negocio
 
-Actualmente están implementados:
+Se implementaron las funcionalidades principales para la gestión de eventos y subtareas logísticas:
 
-Modelo de organizador
-Modelo de evento
-Modelo de subtarea logística
-Creación y consulta de eventos
-Creación y consulta de subtareas
-Actualización y reprogramación de subtareas
-Clasificación de subtareas por situación
-Cálculo del progreso de un evento
-Detección de conflictos de carga diaria
-Migración inicial de la base de datos
+- Modelo de organizador.
+- Modelo de evento.
+- Modelo de subtarea logística.
+- Creación, consulta y actualización de eventos.
+- Creación, consulta y actualización de subtareas.
+- Reprogramación de subtareas.
+- Clasificación de subtareas según su situación.
+- Cálculo del progreso de los eventos.
+- Detección de conflictos de carga diaria.
+- Migración inicial de la base de datos PostgreSQL en Supabase.
 
-La autenticación llega en el Sprint 2: hasta entonces se trabaja con usuario demo,
-según lo permite el enunciado.
+### Sprint 2 — Autenticación y protección de rutas
 
-## Sprint 4 — estado de la gestión y progreso
+Se incorporó la autenticación de organizadores mediante correo electrónico y contraseña.
 
-Salvo health, login y registro, estas rutas piden `Authorization: Bearer <token>`.
-Un token ausente o vencido responde **401** `{ "detail": "Sesión inválida o expirada" }`.
-Un evento o una gestión de otra cuenta responde **404**.
+- Registro de organizadores.
+- Inicio de sesión y generación de token.
+- Validación de sesión mediante `Authorization: Bearer <token>`.
+- Protección de los endpoints de negocio.
+- Restricción de acceso a los eventos y subtareas pertenecientes a cada organizador.
+- Manejo de sesiones inválidas o expiradas.
 
-### Cambiar el estado — `PATCH /api/events/{evento_id}/subtasks/{subtarea_id}/`
+Salvo los endpoints de health, login y registro, las rutas protegidas requieren autenticación.
 
-Registra el avance (US-09). No hace falta otro endpoint.
-
-Marcar ejecutada:
-
-```json
-{ "estado": "EJECUTADA" }
-```
-
-Posponer con nota opcional:
-
-```json
-{ "estado": "POSPUESTA", "nota_posposicion": "esperando confirmación de salón" }
-```
-
-| Caso | Código | Qué pasa |
+| Situación | Código HTTP | Respuesta |
 | --- | --- | --- |
-| Estado `EJECUTADA` o `POSPUESTA` | 200 | Devuelve la gestión guardada. La nota, si no se envía, no se borra. |
-| Estado distinto de `PENDIENTE`, `EJECUTADA` o `POSPUESTA` | 400 | No guarda. El error viene en `estado`. |
-| Sin sesión | 401 | `Sesión inválida o expirada` |
-| Evento o gestión de otra cuenta | 404 | No guarda |
+| Token válido | Según la operación | Permite acceder a los recursos autorizados. |
+| Token ausente, inválido o expirado | 401 | `{ "detail": "Sesión inválida o expirada" }` |
+| Evento o subtarea de otro organizador | 404 | No permite acceder al recurso. |
 
-Una gestión ejecutada deja de sumar horas del día. Una pospuesta sigue sumando y sigue en su fecha.
+### Sprint 3 — Planificación, reprogramación y conflictos
 
-### Progreso — `GET /api/events/{evento_id}/progress/`
+Se implementaron funcionalidades para gestionar la carga de trabajo de los organizadores:
 
-Porcentaje de gestiones `EJECUTADA` sobre el total del evento (US-10). No se guarda: se calcula en cada consulta. Las pospuestas no cuentan como ejecutadas. Sin gestiones, `progreso` es 0.
+- Actualización y reprogramación de subtareas.
+- Validación de horas estimadas y fechas.
+- Detección de sobrecarga diaria.
+- Sugerencias de fechas alternativas.
+- Reducción de horas para resolver conflictos.
+- Confirmación explícita de operaciones que generan sobrecarga.
+- Validación del límite máximo de 24 horas por día.
+
+Las operaciones que generan conflictos devuelven respuestas estructuradas para que el frontend pueda mostrar mensajes, alertas y opciones de resolución.
+
+### Sprint 4 — Estado de las gestiones y progreso
+
+#### Cambiar el estado — `PATCH /api/events/{evento_id}/subtasks/{subtarea_id}/`
+
+Permite registrar el avance de una gestión logística (US-09) mediante el endpoint de actualización existente.
+
+**Marcar una gestión como ejecutada:**
+
+```json
+{
+  "estado": "EJECUTADA"
+}
+```
+
+**Posponer una gestión con nota opcional:**
+
+```json
+{
+  "estado": "POSPUESTA",
+  "nota_posposicion": "Esperando confirmación del salón"
+}
+```
+
+| Caso | Código HTTP | Resultado |
+| --- | --- | --- |
+| Estado `EJECUTADA` o `POSPUESTA` | 200 | Devuelve la gestión actualizada. Si no se envía una nota, conserva la existente. |
+| Estado distinto de `PENDIENTE`, `EJECUTADA` o `POSPUESTA` | 400 | Rechaza la actualización e informa el error en `estado`. |
+| Sin sesión válida | 401 | Sesión inválida o expirada. |
+| Evento o subtarea de otra cuenta | 404 | No permite modificar el recurso. |
+
+**Reglas de negocio:**
+
+- Una gestión ejecutada deja de sumar horas a la carga diaria.
+- Una gestión pospuesta continúa sumando horas y conserva su fecha hasta que sea reprogramada.
+- El estado de las gestiones se utiliza para calcular el progreso del evento.
+
+#### Progreso — `GET /api/events/{evento_id}/progress/`
+
+Calcula el porcentaje de gestiones ejecutadas respecto al total del evento (US-10).
+
+El porcentaje se calcula en cada consulta y no se almacena como un valor independiente.
+
+**Ejemplo de respuesta:**
 
 ```json
 {
@@ -428,19 +486,32 @@ Porcentaje de gestiones `EJECUTADA` sobre el total del evento (US-10). No se gua
 }
 ```
 
-| Caso | Código |
+**Reglas de negocio:**
+
+- Las gestiones `EJECUTADA` cuentan para el progreso.
+- Las gestiones `PENDIENTE` y `POSPUESTA` no cuentan como ejecutadas.
+- Si el evento no tiene gestiones, `progreso` es `0`.
+
+| Caso | Código HTTP |
 | --- | --- |
-| El evento es del organizador | 200 |
-| Sin sesión | 401 |
-| Evento de otra cuenta o inexistente | 404 |
+| Evento perteneciente al organizador autenticado | 200 |
+| Sin sesión válida | 401 |
+| Evento inexistente o perteneciente a otra cuenta | 404 |
 
-### Avisos de sobrecarga fuera de la gestión
+### Avisos de sobrecarga y gestión del límite diario
 
-Pedido del docente en la retroalimentación del Sprint 3: avisar y ofrecer salidas cuando un día queda por encima del límite, también al cambiar el límite y al crear gestiones. Editar, reprogramar y posponer ya pasaban por esa revisión.
+Como resultado de la retroalimentación del Sprint 3, se ampliaron las validaciones de sobrecarga para detectar conflictos al crear gestiones y al modificar el límite diario del organizador.
 
-**Días por encima del límite — `GET /api/organizador/sobrecarga/`**
+#### Consultar días con sobrecarga — `GET /api/organizador/sobrecarga/`
 
-Días desde hoy que pasan el límite, sumando todos los eventos del organizador. No cuenta las ejecutadas. Sirve para avisar en Configuración y marcar días en `/hoy`. Con `?limite=4` revisa ese límite sin guardarlo.
+Devuelve los días desde la fecha actual cuya carga planificada supera el límite diario del organizador.
+
+- Considera las gestiones de todos los eventos del organizador.
+- Excluye las gestiones ejecutadas.
+- Permite mostrar alertas en Configuración y en la vista `/hoy`.
+- Acepta el parámetro opcional `?limite=4` para evaluar otro límite sin guardarlo.
+
+**Ejemplo de respuesta:**
 
 ```json
 {
@@ -454,9 +525,14 @@ Días desde hoy que pasan el límite, sumando todos los eventos del organizador.
       "exceso_horas": "2.0",
       "gestiones": [
         {
-          "id": 12, "evento": 3, "evento_nombre": "Boda de Ana", "nombre": "Catering",
-          "horas_estimadas": "5.0", "estado": "PENDIENTE",
-          "fecha_sugerida": "2026-10-21", "horas_sugeridas": "3.0"
+          "id": 12,
+          "evento": 3,
+          "evento_nombre": "Boda de Ana",
+          "nombre": "Catering",
+          "horas_estimadas": "5.0",
+          "estado": "PENDIENTE",
+          "fecha_sugerida": "2026-10-21",
+          "horas_sugeridas": "3.0"
         }
       ]
     }
@@ -464,16 +540,103 @@ Días desde hoy que pasan el límite, sumando todos los eventos del organizador.
 }
 ```
 
-`fecha_sugerida` es el primer día donde la gestión cabe entera si se mueve. `horas_sugeridas` son las horas con las que cabe sin moverla; es `null` si esa gestión sola no alcanza a resolver el día.
+**Interpretación de las sugerencias:**
 
-**Cambiar el límite — `PATCH` o `PUT /api/organizador/`**
+- `fecha_sugerida`: primer día en el que la gestión puede programarse completamente sin superar el límite.
+- `horas_sugeridas`: cantidad de horas que permitiría mantener la gestión en el mismo día sin exceder el límite.
+- `horas_sugeridas` puede ser `null` cuando reducir únicamente esa gestión no permite resolver la sobrecarga.
 
-| Caso | Código | Qué pasa |
+#### Actualizar el límite diario — `PATCH` o `PUT /api/organizador/`
+
+Permite modificar el límite de horas diarias y evaluar las consecuencias sobre la planificación existente.
+
+| Caso | Código HTTP | Resultado |
 | --- | --- | --- |
-| El límite baja y quedan días por encima | 409 | `codigo: sobrecarga_por_limite`, `detail`, `limite_actual` y `dias` con la misma forma del listado. No guarda. |
-| Lo mismo con `"confirmar_sobrecarga": true` | 200 | Guarda. `dias_sobrecargados` trae los días afectados. |
-| Sube el límite, o baja sin afectar días | 200 | Guarda. `dias_sobrecargados` trae lo que siga por encima, o `[]`. |
+| Reducir el límite y generar sobrecarga | 409 | Devuelve `codigo: sobrecarga_por_limite`, `detail`, `limite_actual` y `dias`. No guarda el cambio. |
+| Confirmar la sobrecarga mediante `"confirmar_sobrecarga": true` | 200 | Guarda el límite y devuelve `dias_sobrecargados`. |
+| Aumentar el límite o reducirlo sin generar conflictos | 200 | Guarda el cambio y devuelve los días que continúen sobrecargados, si existen. |
 
-**Crear una gestión — `POST /api/events/{evento_id}/subtasks/`**
+#### Crear una gestión — `POST /api/events/{evento_id}/subtasks/`
 
-Misma revisión que reprogramar: 409 `sobrecarga_diaria` con cifras y `fecha_sugerida` si el día pasa el límite, y no crea nada. Con `"confirmar_sobrecarga": true` la crea. Más de 24 h en el día responde 400 `dia_excedido` siempre. La respuesta 201 trae `carga_del_dia`.
+La creación de subtareas incorpora validaciones de carga diaria.
+
+| Caso | Código HTTP | Resultado |
+| --- | --- | --- |
+| Creación sin conflictos | 201 | Crea la gestión y devuelve `carga_del_dia`. |
+| Creación que supera el límite diario | 409 | Devuelve `sobrecarga_diaria` y sugerencias de resolución. No crea la gestión. |
+| Confirmación con `"confirmar_sobrecarga": true` | 201 | Permite crear la gestión aceptando la sobrecarga. |
+| Carga superior a 24 horas en el día | 400 | Devuelve `dia_excedido` y rechaza la operación. |
+
+### QA — Seguridad, pruebas automatizadas y regresión
+
+Se realizaron pruebas de aseguramiento de calidad sobre los endpoints del backend, con especial atención a la autorización de las operaciones sobre subtareas.
+
+#### Hallazgo de seguridad
+
+Se identificó que una solicitud `PATCH` podía intentar modificar el campo `evento` de una subtarea existente para asociarla con un evento perteneciente a otro organizador.
+
+Esto representaba un riesgo para la autorización y la integridad de los datos.
+
+#### Corrección implementada
+
+Se incorporó la validación `validate_evento` en `api/serializers.py`.
+
+La corrección:
+
+- Impide cambiar el evento asociado a una subtarea existente.
+- Evita la reasignación de subtareas mediante solicitudes de actualización.
+- Conserva el funcionamiento de la creación de subtareas.
+- Refuerza el aislamiento de los datos entre organizadores.
+
+#### Pruebas de regresión
+
+Se incorporaron pruebas automatizadas en:
+
+`api/tests/test_subtareas_qa.py`
+
+También se agregó una configuración de pruebas aislada:
+
+`api/tests/settings_qa.py`
+
+Y un ejecutor de QA:
+
+`docs/qa/ejecutar_sin_migraciones.py`
+
+Este entorno utiliza SQLite en memoria para ejecutar las pruebas sin modificar la base de datos real de Supabase.
+
+**Comando de ejecución:**
+
+```bash
+.venv/bin/python docs/qa/ejecutar_sin_migraciones.py api.tests
+```
+
+#### Resultados de QA
+
+| Validación | Resultado |
+| --- | --- |
+| Pruebas específicas de subtareas | 11/11 aprobadas |
+| Suite completa del backend | 138/138 aprobadas |
+| Fallos reportados | 0 |
+| Base de datos de pruebas | SQLite en memoria |
+| Modificaciones sobre Supabase durante la suite QA | Ninguna |
+| Corrección de autorización | Implementada y probada localmente |
+
+**Evidencias disponibles:**
+
+- `docs/qa/subtareas_reporte.md`
+- `docs/qa/subtareas_resultados.txt`
+- `docs/qa/subtareas_regresion_resultados.txt`
+- `docs/qa/subtareas_suite_corregida_resultados.txt`
+
+### Estado general
+
+El backend cuenta con las funcionalidades de eventos, subtareas, autenticación, planificación, reprogramación, control de sobrecarga y seguimiento del progreso desarrolladas durante los Sprints 1 al 4.
+
+La corrección de seguridad y las pruebas de regresión se encuentran implementadas y validadas localmente.
+
+**Pendiente de cierre:**
+
+- Revisión y aprobación del Pull Request.
+- Integración de los cambios a `main`.
+- Validación posterior al despliegue en Render.
+- Limpieza de los registros temporales utilizados en las pruebas manuales, cuando corresponda.
