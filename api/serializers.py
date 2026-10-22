@@ -172,6 +172,13 @@ class SubtareaLogisticaSerializer(serializers.ModelSerializer):
             return None
         return value.strip() or None
 
+    def validate_evento(self, value):
+        if self.instance is not None and value.pk != self.instance.evento_id:
+            raise serializers.ValidationError(
+                "No se puede cambiar el evento de una subtarea."
+            )
+        return value
+
     def validate_horas_estimadas(self, value):
         if value is None or value <= 0:
             raise serializers.ValidationError(HORAS_INVALIDAS)

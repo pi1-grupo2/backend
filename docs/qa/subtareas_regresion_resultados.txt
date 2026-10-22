@@ -1,0 +1,20 @@
+Found 11 test(s).
+QA: SQLite :memory:; esquema desde modelos; sin ejecutar migraciones.
+test_ejecucion_repetida_http_200_conserva_fecha_horas_y_nota (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_con_evento_incorrecto_http_404_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_evento_ajeno_http_404_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_libera_carga_y_actualiza_progreso_http_204_200_404 (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_eliminar_sin_sesion_http_401_conserva_datos (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_patch_no_debe_trasladar_subtarea_a_evento_ajeno_http_400 (api.tests.test_subtareas_qa.SubtareasQATests)
+Regresión de autorización: se espera rechazo, nunca traslado entre cuentas. ... ok
+test_patch_permite_mismo_evento_http_200 (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_patch_rechaza_otro_evento_propio_http_400 (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_patch_traslado_y_nombre_http_400_sin_ningun_cambio (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_post_usa_evento_de_url_aunque_cuerpo_indique_otro_http_201 (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+test_validaciones_patch_http_400_sin_cambios (api.tests.test_subtareas_qa.SubtareasQATests) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.731s
+
+OK
+System check identified no issues (0 silenced).
